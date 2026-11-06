@@ -5,7 +5,12 @@
 {% block content %}
 <!-- Centerpiece: "What can I help with today?" Glass Command Box -->
 <section class="hero-prompt-section">
+  <div class="hero-eyebrow">
+    <i class="bi bi-stars"></i>
+    <span>CyberMemory / Command Center</span>
+  </div>
   <h1 class="hero-headline">What security alert are we investigating today?</h1>
+  <p class="hero-description">Turn noisy signals into clear, actionable investigations with the context of your team's memory.</p>
 
   <!-- Glass Command Box -->
   <div class="glass-command-box">
@@ -141,7 +146,7 @@
         <h2 class="soc-card-title">
           <i class="bi bi-pie-chart-fill"></i> Severity Distribution
         </h2>
-        <span class="badge" style="background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(192, 132, 252, 0.3); color: #C084FC; font-size: 0.72rem;">Active Queue</span>
+        <span class="dashboard-section-tag">Active Queue</span>
       </div>
       <div id="chart-severity" style="height: 260px; width: 100%;">
         <div class="d-flex align-items-center justify-content-center h-100 text-muted-custom">Loading chart...</div>
@@ -155,7 +160,7 @@
         <h2 class="soc-card-title">
           <i class="bi bi-graph-up text-cyan"></i> Memory Bank Growth & Retrievals
         </h2>
-        <span class="badge" style="background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--neon-cyan); font-size: 0.72rem;">Hindsight Telemetry</span>
+        <span class="dashboard-section-tag dashboard-section-tag-cyan">Hindsight Telemetry</span>
       </div>
       <div id="chart-memory-growth" style="height: 260px; width: 100%;">
         <div class="d-flex align-items-center justify-content-center h-100 text-muted-custom">Loading chart...</div>
@@ -170,7 +175,7 @@
     <h2 class="soc-card-title">
       <i class="bi bi-list-task"></i> Recent SOC Investigations
     </h2>
-    <a href="{{ url_for('incident_history') }}" class="btn-glass-secondary" style="padding: 0.35rem 0.85rem; font-size: 0.76rem;">
+    <a href="{{ url_for('incident_history') }}" class="btn-glass-secondary dashboard-archive-link">
       <span>View All Archive</span>
       <i class="bi bi-chevron-right"></i>
     </a>
