@@ -1,0 +1,62 @@
+[
+  {
+    "incident_id": "INC-101",
+    "title": "Encoded PowerShell launched from Word macro",
+    "alert_type": "powershell",
+    "severity": "high",
+    "host": "WS-014",
+    "description": "EDR flagged powershell.exe -enc spawned by WINWORD.EXE on WS-014, followed by an outbound connection to an unknown domain.",
+    "iocs": ["203.0.113.45", "cdn-update.example", "powershell.exe -enc", "invoice_q3.docm"],
+    "steps": ["Isolate host in EDR", "Dump process tree and decode the base64 command", "Pull the email that delivered invoice_q3.docm", "Search other mailboxes for the same attachment"],
+    "root_cause": "Phishing email with a macro-enabled Word attachment",
+    "remediation": "Isolated host, reset user credentials, blocked sender domain and C2 domain, purged the email org-wide",
+    "outcome": "Confirmed malicious",
+    "feedback": "Helpful: checking the email source first saved time",
+    "lessons": "For encoded PowerShell, check the parent process and the delivering email before anything else"
+  },
+  {
+    "incident_id": "INC-102",
+    "title": "Phishing link harvesting Microsoft 365 credentials",
+    "alert_type": "phishing",
+    "severity": "medium",
+    "host": "WS-007",
+    "description": "User reported an email with a link to a fake login page. Proxy logs show the user submitted credentials.",
+    "iocs": ["secure-login-m365.example", "198.51.100.23"],
+    "steps": ["Confirm in proxy logs who clicked", "Force sign-out and password reset", "Review sign-in logs for the account", "Block the domain"],
+    "root_cause": "Credential phishing page impersonating Microsoft 365",
+    "remediation": "Reset password, revoked sessions, blocked domain, notified affected users",
+    "outcome": "Confirmed malicious, no data accessed",
+    "feedback": "Partially helpful: missed checking for new inbox rules",
+    "lessons": "After a phishing click, always check mailbox rules and MFA registrations"
+  },
+  {
+    "incident_id": "INC-103",
+    "title": "SSH brute force against bastion host",
+    "alert_type": "brute_force",
+    "severity": "medium",
+    "host": "BASTION-01",
+    "description": "Over 2000 failed SSH logins from one external IP in 15 minutes, no successful login.",
+    "iocs": ["192.0.2.88"],
+    "steps": ["Check auth.log for any success from the source IP", "Block the IP at the firewall", "Confirm password auth is disabled"],
+    "root_cause": "Automated internet scanning; password auth still enabled",
+    "remediation": "Blocked IP, disabled password authentication, enabled fail2ban",
+    "outcome": "Confirmed malicious, no compromise",
+    "feedback": "Helpful",
+    "lessons": "Disable password SSH on exposed hosts; rate-limit logins"
+  },
+  {
+    "incident_id": "INC-104",
+    "title": "Scheduled task persistence after PowerShell download",
+    "alert_type": "persistence",
+    "severity": "high",
+    "host": "SRV-FILE-02",
+    "description": "New scheduled task running a PowerShell script from a temp directory, created minutes after an encoded PowerShell execution.",
+    "iocs": ["schtasks /create", "C:\\Users\\Public\\upd.ps1", "203.0.113.45"],
+    "steps": ["List scheduled tasks created in the last 24 hours", "Hash and submit the script", "Check for the same C2 IP across hosts", "Remove the task after collecting evidence"],
+    "root_cause": "Attacker persistence after an earlier encoded PowerShell compromise",
+    "remediation": "Removed scheduled task, isolated server, rebuilt from clean image, rotated service account passwords",
+    "outcome": "Confirmed malicious",
+    "feedback": "Helpful: linking to the C2 IP from an earlier incident was the key",
+    "lessons": "Encoded PowerShell is often followed by persistence. Search for scheduled tasks and the same C2 IP"
+  }
+]

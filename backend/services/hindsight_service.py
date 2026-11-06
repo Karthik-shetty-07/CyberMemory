@@ -26,6 +26,11 @@ def _unavailable(e):
     return {"status": "unavailable", "error": type(e).__name__}
 
 
+def _is_missing_bank(e):
+    # A tenant that has never retained anything has no bank yet: empty memory, not an outage
+    return type(e).__name__ == "NotFoundException"
+
+
 def _ensure_bank(client, bank_id):
     try:
         client.create_bank(bank_id=bank_id, name=bank_id, mission=MISSION)
@@ -81,6 +86,8 @@ def recall_similar(query, tenant="default", max_tokens=2048):
                      "incident_ids": INCIDENT_ID_RE.findall(r.text)} for r in res.results]
         return {"status": "ok" if memories else "empty", "memories": memories}
     except Exception as e:
+        if _is_missing_bank(e):
+            return {"status": "empty", "memories": []}
         out = _unavailable(e)
         out["memories"] = []
         return out
@@ -93,6 +100,8 @@ def reflect_lessons(query, tenant="default"):
             ans = c.reflect(bank_id=bank, query=query, budget="low")
         return {"status": "ok", "text": ans.text}
     except Exception as e:
+        if _is_missing_bank(e):
+            return {"status": "empty", "text": ""}
         out = _unavailable(e)
         out["text"] = ""
         return out
