@@ -97,7 +97,6 @@ class MemoryExplorerAPITest(unittest.TestCase):
             "/api/memory/explorer?limit=101",
             headers=self.headers
         )
-
         self.assertEqual(response.status_code, 400)
 
     def test_negative_offset(self):
@@ -105,7 +104,6 @@ class MemoryExplorerAPITest(unittest.TestCase):
             "/api/memory/explorer?offset=-1",
             headers=self.headers
         )
-
         self.assertEqual(response.status_code, 400)
 
     def test_invalid_tenant(self):
@@ -113,7 +111,89 @@ class MemoryExplorerAPITest(unittest.TestCase):
             "/api/memory/explorer",
             headers={"X-Tenant-ID": "INVALID TENANT!"}
         )
+        self.assertEqual(response.status_code, 400)
 
+    @patch("backend.routes.memory_routes.hs.list_memory_units")
+    def test_state_filter(self, mock_list):
+        mock_list.return_value = {
+            "status": "ok",
+            "memories": [{"id": "m1", "state": "valid"}],
+            "total": 1,
+            "limit": 5,
+            "offset": 0
+        }
+
+        response = self.client.get(
+            "/api/memory/explorer?state=valid&limit=5",
+            headers=self.headers
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            mock_list.call_args.kwargs["state"], "valid"
+        )
+
+    @patch("backend.routes.memory_routes.hs.list_memory_units")
+    def test_date_filter(self, mock_list):
+        mock_list.return_value = {
+            "status": "ok",
+            "memories": [],
+            "total": 0,
+            "limit": 20,
+            "offset": 0
+        }
+
+        response = self.client.get(
+            "/api/memory/explorer?time_field=updated_at"
+            "&start_date=2026-11-01T00:00:00Z"
+            "&end_date=2026-11-07T00:00:00Z",
+            headers=self.headers
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            mock_list.call_args.kwargs["time_field"], "updated_at"
+        )
+        self.assertEqual(
+            mock_list.call_args.kwargs["start_date"],
+            "2026-11-01T00:00:00Z"
+        )
+
+    def test_invalid_state(self):
+        response = self.client.get(
+            "/api/memory/explorer?state=unknown",
+            headers=self.headers
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_time_field(self):
+        response = self.client.get(
+            "/api/memory/explorer?time_field=unknown",
+            headers=self.headers
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_date_filter_requires_time_field(self):
+        response = self.client.get(
+            "/api/memory/explorer?start_date=2026-11-01",
+            headers=self.headers
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_start_date(self):
+        response = self.client.get(
+            "/api/memory/explorer?time_field=updated_at&start_date=invalid",
+            headers=self.headers
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_start_date_after_end_date(self):
+        response = self.client.get(
+            "/api/memory/explorer?time_field=updated_at"
+            "&start_date=2026-11-08T00:00:00Z"
+            "&end_date=2026-11-01T00:00:00Z",
+            headers=self.headers
+        )
         self.assertEqual(response.status_code, 400)
 
 

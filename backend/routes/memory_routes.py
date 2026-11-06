@@ -1,5 +1,6 @@
 
 import re
+from datetime import datetime
 from flask import Blueprint, jsonify, request
 from backend import db
 from backend.services import hindsight_service as hs
@@ -9,6 +10,16 @@ memory_bp = Blueprint("memory", __name__)
 TENANT_RE = re.compile(r"^[a-z0-9-]{1,32}$")
 INCIDENT_RE = re.compile(r"^INC-\d+$")
 MAX_TEXT = 5000
+
+ALLOWED_STATES = {"valid", "invalidated"}
+
+ALLOWED_TIME_FIELDS = {
+    "created_at",
+    "updated_at",
+    "mentioned_at",
+    "occurred_start",
+    "occurred_end"
+}
 
 
 def _tenant():
@@ -28,6 +39,17 @@ def _respond(result):
 
 def _str_list(v):
     return isinstance(v, list) and all(isinstance(x, str) for x in v)
+
+
+def _valid_iso_date(value):
+    if not value:
+        return True
+
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return True
+    except (ValueError, AttributeError):
+        return False
 
 
 @memory_bp.get("/health")
@@ -117,7 +139,6 @@ def recall():
 
     result = hs.recall_similar(q, tenant=tenant)
 
-    # Track this valid recall request, even if Hindsight is unavailable.
     db.record_retrieval(
         tenant,
         result.get("status", "unknown")
@@ -229,7 +250,6 @@ def feedback():
     if len(comment) > MAX_TEXT:
         return _bad("comment too long")
 
-    # Ensure the incident belongs to this tenant.
     incident = db.get_incident(tenant, incident_id)
 
     if incident is None:
@@ -252,6 +272,7 @@ def feedback():
         "rating": rating
     }), 201
 
+
 # ---------------- MEMORY EXPLORER API ----------------
 
 @memory_bp.get("/explorer")
@@ -263,6 +284,11 @@ def memory_explorer():
 
     memory_type = request.args.get("type", "").strip() or None
     search_query = request.args.get("q", "").strip() or None
+    state = request.args.get("state", "").strip() or None
+
+    time_field = request.args.get("time_field", "").strip() or None
+    start_date = request.args.get("start_date", "").strip() or None
+    end_date = request.args.get("end_date", "").strip() or None
 
     try:
         limit = int(request.args.get("limit", 20))
@@ -282,12 +308,46 @@ def memory_explorer():
     if search_query and len(search_query) > MAX_TEXT:
         return _bad("search query too long")
 
+    if state and state not in ALLOWED_STATES:
+        return _bad("state must be valid or invalidated")
+
+    if time_field and time_field not in ALLOWED_TIME_FIELDS:
+        return _bad("invalid time_field")
+
+    if (start_date or end_date) and not time_field:
+        return _bad("time_field is required when using date filters")
+
+    if start_date and not _valid_iso_date(start_date):
+        return _bad("invalid start_date")
+
+    if end_date and not _valid_iso_date(end_date):
+        return _bad("invalid end_date")
+
+    if start_date and end_date:
+        try:
+            start = datetime.fromisoformat(
+                start_date.replace("Z", "+00:00")
+            )
+            end = datetime.fromisoformat(
+                end_date.replace("Z", "+00:00")
+            )
+
+            if start >= end:
+                return _bad("start_date must be earlier than end_date")
+
+        except ValueError:
+            return _bad("start_date and end_date must use compatible timezones")
+
     result = hs.list_memory_units(
         tenant=tenant,
         memory_type=memory_type,
         search_query=search_query,
         limit=limit,
-        offset=offset
+        offset=offset,
+        state=state,
+        time_field=time_field,
+        start_date=start_date,
+        end_date=end_date
     )
 
     return _respond(result)

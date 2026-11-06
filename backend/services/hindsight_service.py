@@ -106,12 +106,17 @@ def reflect_lessons(query, tenant="default"):
         out["text"] = ""
         return out
 
+
 def list_memory_units(
     tenant="default",
     memory_type=None,
     search_query=None,
     limit=20,
-    offset=0
+    offset=0,
+    state=None,
+    time_field=None,
+    start_date=None,
+    end_date=None
 ):
     bank = bank_id_for(tenant)
 
@@ -122,7 +127,11 @@ def list_memory_units(
                 type=memory_type,
                 search_query=search_query,
                 limit=limit,
-                offset=offset
+                offset=offset,
+                state=state,
+                time_field=time_field,
+                start_date=start_date,
+                end_date=end_date
             )
 
         memories = []
