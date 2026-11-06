@@ -5,6 +5,7 @@ multi-tenant memory bank separation, error resilience, and graceful fallback.
 """
 
 import os
+import re
 import json
 from typing import List, Dict, Any, Optional
 from cybermemory.models import HistoricalMatch
@@ -167,7 +168,6 @@ class HindsightMemoryService:
             inc_id = meta.get("incident_id")
             if not inc_id:
                 # Parse incident_id from text if metadata empty
-                import re
                 m = re.search(r"Incident ID:\s*(INC-\d{4}-\d{4})", mem.content)
                 inc_id = m.group(1) if m else "HIST-REF"
 
