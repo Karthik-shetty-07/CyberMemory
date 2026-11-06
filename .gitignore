@@ -1,9 +1,17 @@
+# Python cache files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Virtual environments
 env/
+.venv/
+venv/
+ENV/
+
+# Build and distribution
 build/
 develop-eggs/
 dist/
@@ -19,14 +27,19 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Environment variables — never commit secrets
 .env
-.venv
-venv/
-ENV/
+
+# Testing and coverage
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Hindsight test data
 hindsight_test_store.json
+
+# IDE and OS files
 .DS_Store
 .vscode/
 .idea/
