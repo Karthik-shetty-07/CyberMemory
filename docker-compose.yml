@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  cybermemory-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cybermemory_api
+    ports:
+      - "5000:5000"
+    environment:
+      - HINDSIGHT_API_KEY=${HINDSIGHT_API_KEY:-}
+      - HINDSIGHT_API_URL=${HINDSIGHT_API_URL:-http://hindsight-memory:8888}
+      - HINDSIGHT_DEFAULT_BANK_ID=${HINDSIGHT_DEFAULT_BANK_ID:-cybermemory_soc_demo}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GROQ_MODEL=${GROQ_MODEL:-openai/gpt-oss-120b}
+      - OPERATIONAL_MODE=READ_ONLY_ANALYSIS
+      - PORT=5000
+    depends_on:
+      - hindsight-memory
+    restart: unless-stopped
+    networks:
+      - cybermemory-net
+
+  hindsight-memory:
+    image: vectorizeio/hindsight:latest
+    container_name: hindsight_memory
+    ports:
+      - "8888:8888"
+    volumes:
+      - hindsight_data:/data
+    restart: unless-stopped
+    networks:
+      - cybermemory-net
+
+volumes:
+  hindsight_data:
+    driver: local
+
+networks:
+  cybermemory-net:
+    driver: bridge
+
