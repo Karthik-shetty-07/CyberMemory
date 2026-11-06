@@ -1,4 +1,16 @@
 # Python cache files
+
+# Environment variables
+.env
+.env.*
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache and compiled files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -6,12 +18,9 @@ __pycache__/
 .Python
 
 # Virtual environments
-env/
-.venv/
-venv/
-ENV/
 
 # Build and distribution
+# Python build files
 build/
 develop-eggs/
 dist/
@@ -29,7 +38,6 @@ wheels/
 *.egg
 
 # Environment variables — never commit secrets
-.env
 
 # Testing and coverage
 .pytest_cache/
@@ -43,3 +51,21 @@ hindsight_test_store.json
 .DS_Store
 .vscode/
 .idea/
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+
+# Frontend dependencies and builds
+node_modules/
+
+# IDE
+
+# OS files
+
+# Local certificates
+kaspersky-root.cer
+
+# Allow safe example configuration
+!.env.example
