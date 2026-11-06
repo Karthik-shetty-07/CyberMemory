@@ -2,16 +2,16 @@
 
 > **HackwithHyderabad 3.0 AI Agents Hackathon Project**  
 > AI-Powered Cybersecurity Incident Response with Vectorize Hindsight Memory  
-> **Git Branch**: `feature/data-testing`  
+> **Git Branch**: `security-and-deployment`  
 > **Author & Lead**: Data, Security & Testing Engineer (`netwrkspider.org`)
 
 ---
 
 ## 🛡️ Project Overview
 
-Traditional cybersecurity AI chatbots suffer from **investigator amnesia**: every alert begins from scratch, ignoring past root causes, confirmed malicious indicators, and proven remediation steps.
+CyberMemory AI is an AI-powered cybersecurity system that investigates security threats, identifies root causes, and recommends solutions. Using persistent Hindsight memory, it learns from past incidents and analyst feedback to deliver smarter, context-aware security recommendations.
 
-**CyberMemory AI** is an intelligent SOC Tier 3 investigation assistant that uses Large Language Models (LLMs via Groq) and **persistent agent memory powered by Vectorize Hindsight** to remember historical security incidents, investigation procedures, root causes, remediation actions, analyst feedback, and final outcomes.
+Traditional cybersecurity AI chatbots suffer from **investigator amnesia**: every alert begins from scratch, ignoring past root causes, confirmed malicious indicators, and proven remediation steps. CyberMemory AI bridges this gap as an intelligent SOC Tier 3 investigation assistant that remembers historical security incidents, investigation procedures, root causes, remediation actions, analyst feedback, and final outcomes.
 
 ### Core Capabilities
 * **Persistent Incident Memory**: Stores incident experiences using Hindsight (`retain`, `recall`, `reflect`).
@@ -174,4 +174,3 @@ The synthetic dataset in `data/synthetic_incidents.json` covers all 10 mandated 
 * **Prompt Injection Defanging**: Malicious instructions in logs are neutralized before LLM reasoning.
 * **Safe Error Logging**: Automatic redaction of API keys, passwords, and tokens.
 * See [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) for full compliance verification.
-
