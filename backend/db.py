@@ -30,7 +30,6 @@ def _now():
 
 def init_db():
 
-    # Original incidents table
     _run("""CREATE TABLE IF NOT EXISTS incidents (
         tenant TEXT NOT NULL,
         incident_id TEXT NOT NULL,
@@ -43,13 +42,20 @@ def init_db():
         PRIMARY KEY (tenant, incident_id)
     )""")
 
-    # New analyst feedback table
     _run("""CREATE TABLE IF NOT EXISTS analyst_feedback (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         tenant TEXT NOT NULL,
         incident_id TEXT NOT NULL,
         rating TEXT NOT NULL CHECK(rating IN ('positive', 'negative')),
         comment TEXT DEFAULT '',
+        created_at TEXT NOT NULL
+    )""")
+
+    # Tracks successful and unsuccessful recall requests
+    _run("""CREATE TABLE IF NOT EXISTS memory_retrievals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant TEXT NOT NULL,
+        status TEXT NOT NULL,
         created_at TEXT NOT NULL
     )""")
 
@@ -167,4 +173,105 @@ def feedback_counts(tenant):
     return {
         r["rating"]: r["total"]
         for r in rows
+    }
+
+
+# ---------------- MEMORY RETRIEVAL TRACKING ----------------
+
+def record_retrieval(tenant, status):
+    _run(
+        """INSERT INTO memory_retrievals
+           (tenant, status, created_at)
+           VALUES (?, ?, ?)""",
+        (tenant, status, _now())
+    )
+
+
+def retrieval_count(tenant):
+    rows = _run(
+        """SELECT COUNT(*) AS total
+           FROM memory_retrievals
+           WHERE tenant=?""",
+        (tenant,),
+        fetch=True
+    )
+
+    return rows[0]["total"]
+
+
+# ---------------- DASHBOARD STATISTICS ----------------
+
+def dashboard_stats(tenant):
+
+    rows = _run(
+        """SELECT severity, COUNT(*) AS total
+           FROM incidents
+           WHERE tenant=?
+           GROUP BY severity""",
+        (tenant,),
+        fetch=True
+    )
+
+    severity_counts = {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0
+    }
+
+    for row in rows:
+        key = (row["severity"] or "").lower()
+
+        if key in severity_counts:
+            severity_counts[key] = row["total"]
+
+    outcome_rows = _run(
+        """SELECT data FROM incidents WHERE tenant=?""",
+        (tenant,),
+        fetch=True
+    )
+
+    outcome_counts = {
+        "confirmed_malicious": 0,
+        "false_positive": 0,
+        "other": 0
+    }
+
+    for row in outcome_rows:
+        data = json.loads(row["data"])
+        outcome = data.get("outcome", "").lower()
+
+        if "false positive" in outcome:
+            outcome_counts["false_positive"] += 1
+        elif "confirmed malicious" in outcome:
+            outcome_counts["confirmed_malicious"] += 1
+        else:
+            outcome_counts["other"] += 1
+
+    status_rows = _run(
+        """SELECT hindsight_status, COUNT(*) AS total
+           FROM incidents
+           WHERE tenant=?
+           GROUP BY hindsight_status""",
+        (tenant,),
+        fetch=True
+    )
+
+    hindsight_counts = {
+        row["hindsight_status"] or "unknown": row["total"]
+        for row in status_rows
+    }
+
+    feedback = feedback_counts(tenant)
+
+    return {
+        "total_incidents": len(outcome_rows),
+        "severity_counts": severity_counts,
+        "outcome_counts": outcome_counts,
+        "feedback_counts": {
+            "positive": feedback.get("positive", 0),
+            "negative": feedback.get("negative", 0)
+        },
+        "hindsight_counts": hindsight_counts,
+        "total_retrievals": retrieval_count(tenant)
     }
