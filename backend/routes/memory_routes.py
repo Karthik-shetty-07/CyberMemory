@@ -35,6 +35,25 @@ def health():
     return _respond(hs.health())
 
 
+# ---------------- DASHBOARD STATS API ----------------
+
+@memory_bp.get("/stats")
+def stats():
+    tenant = _tenant()
+
+    if not tenant:
+        return _bad("invalid X-Tenant-ID")
+
+    result = db.dashboard_stats(tenant)
+
+    return jsonify({
+        "status": "ok",
+        "stats": result
+    })
+
+
+# ---------------- RETAIN API ----------------
+
 @memory_bp.post("/retain")
 def retain():
     tenant = _tenant()
@@ -74,6 +93,8 @@ def retain():
     return _respond(result)
 
 
+# ---------------- RECALL API ----------------
+
 @memory_bp.post("/recall")
 def recall():
     tenant = _tenant()
@@ -81,7 +102,10 @@ def recall():
     if not tenant:
         return _bad("invalid X-Tenant-ID")
 
-    d = request.get_json(silent=True) or {}
+    d = request.get_json(silent=True)
+
+    if not isinstance(d, dict):
+        return _bad("JSON body required")
 
     q = str(d.get("query", "")).strip()
 
@@ -91,10 +115,18 @@ def recall():
     if len(q) > MAX_TEXT:
         return _bad("query too long")
 
-    return _respond(
-        hs.recall_similar(q, tenant=tenant)
+    result = hs.recall_similar(q, tenant=tenant)
+
+    # Track this valid recall request, even if Hindsight is unavailable.
+    db.record_retrieval(
+        tenant,
+        result.get("status", "unknown")
     )
 
+    return _respond(result)
+
+
+# ---------------- REFLECT API ----------------
 
 @memory_bp.post("/reflect")
 def reflect():
@@ -103,7 +135,10 @@ def reflect():
     if not tenant:
         return _bad("invalid X-Tenant-ID")
 
-    d = request.get_json(silent=True) or {}
+    d = request.get_json(silent=True)
+
+    if not isinstance(d, dict):
+        return _bad("JSON body required")
 
     q = str(d.get("query", "")).strip()
 
@@ -117,6 +152,8 @@ def reflect():
         hs.reflect_lessons(q, tenant=tenant)
     )
 
+
+# ---------------- INCIDENT HISTORY API ----------------
 
 @memory_bp.get("/incidents")
 def incidents():
@@ -192,7 +229,7 @@ def feedback():
     if len(comment) > MAX_TEXT:
         return _bad("comment too long")
 
-    # Ensure the incident belongs to this tenant
+    # Ensure the incident belongs to this tenant.
     incident = db.get_incident(tenant, incident_id)
 
     if incident is None:
