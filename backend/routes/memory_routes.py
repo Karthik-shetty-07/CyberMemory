@@ -1,9 +1,11 @@
+
 import re
 from flask import Blueprint, jsonify, request
 from backend import db
 from backend.services import hindsight_service as hs
 
 memory_bp = Blueprint("memory", __name__)
+
 TENANT_RE = re.compile(r"^[a-z0-9-]{1,32}$")
 INCIDENT_RE = re.compile(r"^INC-\d+$")
 MAX_TEXT = 5000
@@ -19,8 +21,9 @@ def _bad(msg):
 
 
 def _respond(result):
-    # 200 for ok/empty, 503 when Hindsight is unreachable (body always has "status")
-    return jsonify(result), (503 if result.get("status") == "unavailable" else 200)
+    return jsonify(result), (
+        503 if result.get("status") == "unavailable" else 200
+    )
 
 
 def _str_list(v):
@@ -35,74 +38,179 @@ def health():
 @memory_bp.post("/retain")
 def retain():
     tenant = _tenant()
+
     if not tenant:
         return _bad("invalid X-Tenant-ID")
+
     d = request.get_json(silent=True)
+
     if not isinstance(d, dict):
         return _bad("JSON body required")
+
     if not INCIDENT_RE.match(str(d.get("incident_id", ""))):
         return _bad("incident_id must look like INC-001")
+
     if not str(d.get("description", "")).strip():
         return _bad("description is required")
+
     for f in ("iocs", "steps"):
         if f in d and not _str_list(d[f]):
             return _bad(f"{f} must be a list of strings")
+
     for f, v in d.items():
         if isinstance(v, str) and len(v) > MAX_TEXT:
             return _bad(f"{f} too long")
+
     db.save_incident(tenant, d, "pending")
+
     result = hs.retain_incident(d, tenant=tenant)
-    db.set_hindsight_status(tenant, d["incident_id"], result["status"])
+
+    db.set_hindsight_status(
+        tenant, d["incident_id"], result["status"]
+    )
+
     result["saved_locally"] = True
+
     return _respond(result)
 
 
 @memory_bp.post("/recall")
 def recall():
     tenant = _tenant()
+
     if not tenant:
         return _bad("invalid X-Tenant-ID")
+
     d = request.get_json(silent=True) or {}
+
     q = str(d.get("query", "")).strip()
+
     if not q:
         return _bad("query is required")
+
     if len(q) > MAX_TEXT:
         return _bad("query too long")
-    return _respond(hs.recall_similar(q, tenant=tenant))
+
+    return _respond(
+        hs.recall_similar(q, tenant=tenant)
+    )
 
 
 @memory_bp.post("/reflect")
 def reflect():
     tenant = _tenant()
+
     if not tenant:
         return _bad("invalid X-Tenant-ID")
+
     d = request.get_json(silent=True) or {}
+
     q = str(d.get("query", "")).strip()
+
     if not q:
         return _bad("query is required")
+
     if len(q) > MAX_TEXT:
         return _bad("query too long")
-    return _respond(hs.reflect_lessons(q, tenant=tenant))
+
+    return _respond(
+        hs.reflect_lessons(q, tenant=tenant)
+    )
 
 
 @memory_bp.get("/incidents")
 def incidents():
     tenant = _tenant()
+
     if not tenant:
         return _bad("invalid X-Tenant-ID")
-    items = db.list_incidents(tenant, severity=request.args.get("severity"),
-                              q=request.args.get("q"))
-    return jsonify({"status": "ok", "count": len(items), "incidents": items})
+
+    items = db.list_incidents(
+        tenant,
+        severity=request.args.get("severity"),
+        q=request.args.get("q")
+    )
+
+    return jsonify({
+        "status": "ok",
+        "count": len(items),
+        "incidents": items
+    })
 
 
 @memory_bp.get("/incidents/<incident_id>")
 def incident_detail(incident_id):
     tenant = _tenant()
+
     if not tenant:
         return _bad("invalid X-Tenant-ID")
+
     if not INCIDENT_RE.match(incident_id):
         return _bad("invalid incident id")
+
     inc = db.get_incident(tenant, incident_id)
+
     if inc is None:
-        return jsonify({"status": "error", "error": "not found"}), 404
-    return jsonify({"status": "ok", "incident": inc})
+        return jsonify({
+            "status": "error",
+            "error": "not found"
+        }), 404
+
+    return jsonify({
+        "status": "ok",
+        "incident": inc
+    })
+
+
+# ---------------- ANALYST FEEDBACK API ----------------
+
+@memory_bp.post("/feedback")
+def feedback():
+    tenant = _tenant()
+
+    if not tenant:
+        return _bad("invalid X-Tenant-ID")
+
+    d = request.get_json(silent=True)
+
+    if not isinstance(d, dict):
+        return _bad("JSON body required")
+
+    incident_id = str(d.get("incident_id", "")).strip()
+    rating = d.get("rating")
+    comment = d.get("comment", "")
+
+    if not INCIDENT_RE.match(incident_id):
+        return _bad("invalid incident_id")
+
+    if rating not in ("positive", "negative"):
+        return _bad("rating must be positive or negative")
+
+    if not isinstance(comment, str):
+        return _bad("comment must be a string")
+
+    if len(comment) > MAX_TEXT:
+        return _bad("comment too long")
+
+    # Ensure the incident belongs to this tenant
+    incident = db.get_incident(tenant, incident_id)
+
+    if incident is None:
+        return jsonify({
+            "status": "error",
+            "error": "incident not found"
+        }), 404
+
+    db.save_feedback(
+        tenant,
+        incident_id,
+        rating,
+        comment.strip()
+    )
+
+    return jsonify({
+        "status": "ok",
+        "message": "Feedback saved successfully",
+        "incident_id": incident_id,
+        "rating": rating
+    }), 201
