@@ -9,7 +9,7 @@ from backend.services import hindsight_service as hs
 memory_bp = Blueprint("memory", __name__)
 
 TENANT_RE = re.compile(r"^[a-z0-9-]{1,32}$")
-INCIDENT_RE = re.compile(r"^INC-\d+$")
+INCIDENT_RE = re.compile(r"^INC-\d+(?:-\d+)*$")
 MAX_TEXT = 5000
 ALLOWED_STATES = {"valid", "invalidated"}
 ALLOWED_TIME_FIELDS = {

@@ -69,3 +69,4 @@ kaspersky-root.cer
 
 # Allow safe example configuration
 !.env.example
+backend/data/local_banks/

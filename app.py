@@ -38,11 +38,78 @@ TENANT_ID = os.environ.get("CYBERMEMORY_TENANT", "demo")
 
 
 
+_BACKEND_APP = None
+
+
+def incident_to_backend_payload(inc):
+    """Map a dashboard incident record to the backend /api/memory/retain schema."""
+    ind = inc.get('indicators') or {}
+    iocs = []
+    if isinstance(ind, dict):
+        for v in ind.values():
+            if isinstance(v, list):
+                iocs.extend(str(x) for x in v)
+    steps = [
+        str(s.get('action', s)) if isinstance(s, dict) else str(s)
+        for s in (inc.get('investigation_steps') or [])
+    ]
+    fb = inc.get('analyst_feedback') or {}
+    return {
+        "incident_id": inc.get('id') or inc.get('incident_id'),
+        "title": inc.get('title', ''),
+        "description": inc.get('description', '') or inc.get('title', ''),
+        "severity": inc.get('severity', ''),
+        "alert_type": inc.get('alert_type', ''),
+        "host": inc.get('affected_host', ''),
+        "iocs": iocs,
+        "steps": steps,
+        "root_cause": inc.get('root_cause', ''),
+        "remediation": inc.get('remediation', ''),
+        "outcome": inc.get('final_outcome', ''),
+        "feedback": fb.get('comments', '') if isinstance(fb, dict) else str(fb),
+        "lessons": inc.get('lessons_learned', ''),
+    }
+
+
+def _seed_inprocess_backend(backend_app):
+    """Load the dashboard's incident dataset into the bundled backend once per tenant."""
+    from backend import db as _bdb
+    with backend_app.test_client() as c:
+        for inc in incidents_db:
+            payload = incident_to_backend_payload(inc)
+            if not payload["incident_id"] or _bdb.get_incident(TENANT_ID, payload["incident_id"]):
+                continue
+            c.post('/api/memory/retain', headers={"X-Tenant-ID": TENANT_ID}, json=payload)
+
+
+def _inprocess_backend(endpoint, method='GET', data=None, params=None):
+    """No BACKEND_API_URL: serve memory routes from the bundled backend app in-process."""
+    global _BACKEND_APP
+    try:
+        if _BACKEND_APP is None:
+            from backend.app import create_app as _create_backend
+            _BACKEND_APP = _create_backend()
+            _seed_inprocess_backend(_BACKEND_APP)
+        with _BACKEND_APP.test_client() as c:
+            headers = {"X-Tenant-ID": TENANT_ID}
+            if method.upper() == "GET":
+                r = c.get(endpoint, headers=headers, query_string=params)
+            else:
+                r = c.post(endpoint, headers=headers, json=data)
+        if r.status_code >= 400:
+            print(f"In-process backend error {r.status_code} for {endpoint}")
+            return None
+        return r.get_json()
+    except Exception as e:  # never crash the dashboard on memory failures
+        print(f"In-process backend unavailable: {type(e).__name__}")
+        return None
+
+
 def try_backend_proxy(endpoint, method='GET', data=None, params=None):
 
     if not BACKEND_API_URL:
 
-        return None
+        return _inprocess_backend(endpoint, method, data, params)
 
 
 

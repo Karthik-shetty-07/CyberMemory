@@ -2,11 +2,21 @@
 import logging
 import re
 
-from hindsight_client import Hindsight
+import json
+import os
+import threading
+import uuid
+from datetime import datetime, timezone
+
 from backend import config
 
+try:  # The SDK is optional: without it (or without HINDSIGHT_URL) a local bank is used.
+    from hindsight_client import Hindsight
+except ImportError:  # pragma: no cover - depends on environment
+    Hindsight = None
+
 log = logging.getLogger(__name__)
-INCIDENT_ID_RE = re.compile(r"INC-\d+")
+INCIDENT_ID_RE = re.compile(r"INC-\d+(?:-\d+)*")
 MISSION = (
     "SOC investigation memory: remember security incidents, indicators, "
     "investigation steps, root causes, remediation and outcomes."
@@ -17,7 +27,14 @@ def bank_id_for(tenant="default"):
     return f"{config.BANK_PREFIX}-{tenant}"
 
 
+def use_live():
+    """True only when the SDK is installed and a Hindsight URL is configured."""
+    return Hindsight is not None and bool(config.HINDSIGHT_URL)
+
+
 def _client():
+    if not use_live():
+        raise RuntimeError("Hindsight not configured")
     return Hindsight(
         base_url=config.HINDSIGHT_URL,
         api_key=config.HINDSIGHT_API_KEY or None,
@@ -60,7 +77,70 @@ def build_incident_text(inc):
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Local memory bank: an honest offline fallback (clearly labelled mode="local").
+# ---------------------------------------------------------------------------
+_LOCK = threading.Lock()
+_WORD_RE = re.compile(r"[a-z0-9][a-z0-9.\-_]{2,}")
+
+
+def _local_path(bank):
+    root = os.environ.get("LOCAL_BANK_DIR") or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "local_banks")
+    os.makedirs(root, exist_ok=True)
+    return os.path.join(root, f"{re.sub(r'[^A-Za-z0-9_-]', '_', bank)}.json")
+
+
+def _local_load(bank):
+    try:
+        with open(_local_path(bank), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
+
+
+def _local_save(bank, items):
+    path = _local_path(bank)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(items, f, indent=2)
+    os.replace(tmp, path)
+
+
+def _local_retain(bank, content, context, document_id=None, metadata=None, fact_type="world"):
+    with _LOCK:
+        items = _local_load(bank)
+        if document_id:  # same document id replaces the earlier version, like Hindsight
+            items = [i for i in items if i.get("document_id") != document_id]
+        items.append({
+            "id": uuid.uuid4().hex, "text": content, "context": context,
+            "document_id": document_id, "metadata": metadata or {},
+            "fact_type": fact_type, "tags": [], "state": "active",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+        _local_save(bank, items)
+
+
+def _tokens(text):
+    return set(_WORD_RE.findall((text or "").lower()))
+
+
+def _local_rank(bank, query):
+    q = _tokens(query)
+    scored = []
+    for item in _local_load(bank):
+        t = _tokens(item["text"])
+        if q and t:
+            overlap = len(q & t) / len(q)
+            if overlap > 0:
+                scored.append((overlap, item))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return scored
+
+
 def health():
+    if not use_live():
+        return {"status": "ok", "mode": "local", "api_version": None}
     try:
         with _client() as c:
             return {"status": "ok", "api_version": c.get_version().api_version}
@@ -70,6 +150,12 @@ def health():
 
 def retain_incident(inc, tenant="default"):
     bank = bank_id_for(tenant)
+    if not use_live():
+        _local_retain(bank, build_incident_text(inc), "security incident report",
+                      document_id=inc["incident_id"],
+                      metadata={"severity": str(inc.get("severity", "")),
+                                "alert_type": str(inc.get("alert_type", ""))})
+        return {"status": "ok", "incident_id": inc["incident_id"], "mode": "local"}
     try:
         with _client() as c:
             _ensure_bank(c, bank)
@@ -105,6 +191,11 @@ def retain_feedback(incident, rating, comment, tenant="default"):
         f"Original remediation: {incident.get('remediation', '')}"
     ])
 
+    if not use_live():
+        _local_retain(bank, content, "SOC analyst feedback and confirmed incident findings",
+                      metadata={"incident_id": incident_id, "rating": rating,
+                                "type": "analyst_feedback"}, fact_type="experience")
+        return {"status": "ok", "incident_id": incident_id, "mode": "local"}
     try:
         with _client() as c:
             _ensure_bank(c, bank)
@@ -126,6 +217,13 @@ def retain_feedback(incident, rating, comment, tenant="default"):
 
 def recall_similar(query, tenant="default", max_tokens=2048):
     bank = bank_id_for(tenant)
+    if not use_live():
+        memories = [
+            {"text": i["text"], "type": i.get("fact_type"), "score": round(sc, 3),
+             "incident_ids": INCIDENT_ID_RE.findall(i["text"])}
+            for sc, i in _local_rank(bank, query)[:8]
+        ]
+        return {"status": "ok" if memories else "empty", "memories": memories, "mode": "local"}
     try:
         with _client() as c:
             res = c.recall(bank_id=bank, query=query, budget="mid", max_tokens=max_tokens)
@@ -144,6 +242,22 @@ def recall_similar(query, tenant="default", max_tokens=2048):
 
 def reflect_lessons(query, tenant="default"):
     bank = bank_id_for(tenant)
+    if not use_live():
+        ranked = _local_rank(bank, query)[:5]
+        if not ranked:
+            return {"status": "empty", "text": "", "mode": "local"}
+        lines = []
+        for _, i in ranked:
+            rc = re.search(r"Root cause:\s*([^\n]+)", i["text"])
+            le = re.search(r"Lessons learned:\s*([^\n]+)", i["text"])
+            ids = INCIDENT_ID_RE.findall(i["text"])
+            parts = [p for p in [rc and f"root cause: {rc.group(1)}",
+                                 le and f"lesson: {le.group(1)}"] if p]
+            if parts:
+                lines.append(f"- {ids[0] if ids else 'memory'}: " + "; ".join(parts))
+        text = ("Local bank synthesis (keyword match, no LLM reflection):\n" + "\n".join(lines)) if lines \
+            else "Related memories exist but none record root causes or lessons yet."
+        return {"status": "ok", "text": text, "mode": "local"}
     try:
         with _client() as c:
             ans = c.reflect(bank_id=bank, query=query, budget="low")
@@ -161,6 +275,26 @@ def list_memory_units(
     state=None, time_field=None, start_date=None, end_date=None
 ):
     bank = bank_id_for(tenant)
+    if not use_live():
+        items = _local_load(bank)
+        if memory_type:
+            items = [i for i in items if i.get("fact_type") == memory_type]
+        if state:
+            items = [i for i in items if i.get("state") == state]
+        if search_query:
+            ql = search_query.lower()
+            items = [i for i in items if ql in i["text"].lower()]
+        items = sorted(items, key=lambda i: i.get("updated_at", ""), reverse=True)
+        page = items[offset:offset + limit]
+        memories = [{
+            "id": i["id"], "text": i["text"], "context": i.get("context"),
+            "type": i.get("fact_type"), "document_id": i.get("document_id"),
+            "incident_ids": INCIDENT_ID_RE.findall(i["text"]), "entities": None,
+            "tags": i.get("tags", []), "date": i.get("updated_at"), "state": i.get("state"),
+            "proof_count": None, "updated_at": i.get("updated_at"),
+        } for i in page]
+        return {"status": "ok" if memories else "empty", "memories": memories,
+                "total": len(items), "limit": limit, "offset": offset, "mode": "local"}
     try:
         with _client() as c:
             res = c.list_memories(
