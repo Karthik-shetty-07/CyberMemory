@@ -1,0 +1,80 @@
+import re
+from flask import Blueprint, jsonify, request
+from backend.services import hindsight_service as hs
+
+memory_bp = Blueprint("memory", __name__)
+TENANT_RE = re.compile(r"^[a-z0-9-]{1,32}$")
+INCIDENT_RE = re.compile(r"^INC-\d+$")
+MAX_TEXT = 5000
+
+
+def _tenant():
+    t = request.headers.get("X-Tenant-ID", "default").strip().lower()
+    return t if TENANT_RE.match(t) else None
+
+
+def _bad(msg):
+    return jsonify({"status": "error", "error": msg}), 400
+
+
+def _respond(result):
+    # 200 for ok/empty, 503 when Hindsight is unreachable (body always has "status")
+    return jsonify(result), (503 if result.get("status") == "unavailable" else 200)
+
+
+def _str_list(v):
+    return isinstance(v, list) and all(isinstance(x, str) for x in v)
+
+
+@memory_bp.get("/health")
+def health():
+    return _respond(hs.health())
+
+
+@memory_bp.post("/retain")
+def retain():
+    tenant = _tenant()
+    if not tenant:
+        return _bad("invalid X-Tenant-ID")
+    d = request.get_json(silent=True)
+    if not isinstance(d, dict):
+        return _bad("JSON body required")
+    if not INCIDENT_RE.match(str(d.get("incident_id", ""))):
+        return _bad("incident_id must look like INC-001")
+    if not str(d.get("description", "")).strip():
+        return _bad("description is required")
+    for f in ("iocs", "steps"):
+        if f in d and not _str_list(d[f]):
+            return _bad(f"{f} must be a list of strings")
+    for f, v in d.items():
+        if isinstance(v, str) and len(v) > MAX_TEXT:
+            return _bad(f"{f} too long")
+    return _respond(hs.retain_incident(d, tenant=tenant))
+
+
+@memory_bp.post("/recall")
+def recall():
+    tenant = _tenant()
+    if not tenant:
+        return _bad("invalid X-Tenant-ID")
+    d = request.get_json(silent=True) or {}
+    q = str(d.get("query", "")).strip()
+    if not q:
+        return _bad("query is required")
+    if len(q) > MAX_TEXT:
+        return _bad("query too long")
+    return _respond(hs.recall_similar(q, tenant=tenant))
+
+
+@memory_bp.post("/reflect")
+def reflect():
+    tenant = _tenant()
+    if not tenant:
+        return _bad("invalid X-Tenant-ID")
+    d = request.get_json(silent=True) or {}
+    q = str(d.get("query", "")).strip()
+    if not q:
+        return _bad("query is required")
+    if len(q) > MAX_TEXT:
+        return _bad("query too long")
+    return _respond(hs.reflect_lessons(q, tenant=tenant))
