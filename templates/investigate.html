@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}New Investigation{% endblock %}
+{% block page_icon %}<i class="bi bi-cpu-fill"></i>{% endblock %}
+{% block page_title %}Investigate{% endblock %}
+
+{% block content %}
+<!-- Safety & Operational Header Banner -->
+<div class="soc-alert soc-alert-safety mb-4">
+  <i class="bi bi-shield-exclamation fs-5 text-danger"></i>
+  <div>
+    <span class="fw-bold text-white">SOC Read-Only Analysis Mode:</span>
+    CyberMemory AI analyzes logs and retrieves historical memory to recommend actions. No automatic containment scripts will execute on endpoints without explicit human analyst verification and authorization.
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Left Column: Incident Submission Form -->
+  <div class="col-12 col-xl-8">
+    <div class="soc-card">
+      <div class="soc-card-header">
+        <h2 class="soc-card-title">
+          <i class="bi bi-file-earmark-medical"></i> Alert Ingestion & Analysis Parameters
+        </h2>
+        <span class="badge" style="background: rgba(0, 242, 254, 0.1); border: 1px solid rgba(0, 242, 254, 0.3); color: var(--accent-cyan); font-size: 0.72rem;">Hindsight Recall Active</span>
+      </div>
+
+      <form id="investigation-form" onsubmit="handleInvestigationSubmit(event)">
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-8">
+            <label class="soc-label" for="incident-title">Incident Title <span class="text-danger">*</span></label>
+            <input type="text" id="incident-title" class="soc-input" placeholder="e.g. Suspicious PowerShell Download Cradle on FIN-WKS" required>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="soc-label" for="incident-severity">Initial Severity <span class="text-danger">*</span></label>
+            <select id="incident-severity" class="soc-select">
+              <option value="Critical">Critical</option>
+              <option value="High" selected>High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-4">
+            <label class="soc-label" for="alert-source">Alert Source</label>
+            <input type="text" id="alert-source" class="soc-input" placeholder="e.g. CrowdStrike Falcon, Splunk, Palo Alto" value="CrowdStrike Falcon EDR">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="soc-label" for="affected-host">Affected Hostname <span class="text-danger">*</span></label>
+            <input type="text" id="affected-host" class="soc-input font-mono" placeholder="e.g. FIN-WKS-042" required>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="soc-label" for="target-user">User Account</label>
+            <input type="text" id="target-user" class="soc-input font-mono" placeholder="e.g. corp\jdoe" value="corp\jdoe">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="soc-label" for="alert-description">Alert Description & Context</label>
+          <textarea id="alert-description" class="soc-input" rows="2" placeholder="Brief summary of the detected anomaly..."></textarea>
+        </div>
+
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="soc-label mb-0" for="security-logs">Raw Security Logs / Telemetry <span class="text-danger">*</span></label>
+            <span style="font-size: 0.72rem; color: var(--text-dim);">JSON, Syslog, Event Viewer, or CLI output</span>
+          </div>
+          <textarea id="security-logs" class="soc-textarea" rows="6" placeholder="Paste Windows Event 4688, Sysmon, Zeek, or EDR telemetry here..." required></textarea>
+        </div>
+
+        <div class="row g-3 align-items-center mb-4">
+          <div class="col-12 col-md-7">
+            <label class="soc-label" for="log-file">Optional Log / Artifact Upload</label>
+            <input type="file" id="log-file" class="soc-input" accept=".log,.json,.txt,.csv" onchange="handleFileUpload(event)">
+            <span style="font-size: 0.7rem; color: var(--text-dim);">Accepts .log, .json, .txt (max 10MB)</span>
+          </div>
+          <div class="col-12 col-md-5">
+            <div class="form-check pt-3">
+              <input class="form-check-input" type="checkbox" id="toggle-memory-recall" checked style="background-color: #0A101D; border-color: var(--border-color);">
+              <label class="form-check-label" for="toggle-memory-recall" style="font-size: 0.8rem; color: var(--text-main);">
+                <i class="bi bi-diagram-3 text-cyan me-1"></i> Retrieve Hindsight Historical Context
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-3 pt-2 border-top" style="border-color: rgba(56, 189, 248, 0.08) !important;">
+          <button type="reset" class="btn-soc-secondary">
+            <i class="bi bi-x-circle"></i> Clear Form
+          </button>
+          <button type="submit" id="btn-submit-investigation" class="btn-soc-primary">
+            <i class="bi bi-search"></i> Run AI SOC Investigation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right Column: Demo Presets & Real-Time Pipeline Inspection -->
+  <div class="col-12 col-xl-4">
+    <!-- Quick Demo Presets -->
+    <div class="soc-card mb-4">
+      <div class="soc-card-header">
+        <h2 class="soc-card-title">
+          <i class="bi bi-lightning-charge-fill text-warning"></i> Quick Demo Presets
+        </h2>
+        <span style="font-size: 0.7rem; color: var(--text-dim);">1-Click Hackathon Scenarios</span>
+      </div>
+      <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+        Select a pre-configured scenario to test how CyberMemory AI synthesizes live telemetry and recalls Hindsight memory:
+      </p>
+
+      <div class="d-flex flex-column gap-2">
+        <button type="button" class="preset-btn" onclick="loadPreset('powershell-recall')">
+          <i class="bi bi-terminal-fill text-danger"></i>
+          <div>
+            <div class="fw-semibold text-white">Demo 1: Encoded PowerShell (Recall Match)</div>
+            <div style="font-size: 0.7rem; color: var(--text-dim);">Matches past INC-2026-0801 macro campaign</div>
+          </div>
+        </button>
+
+        <button type="button" class="preset-btn" onclick="loadPreset('ransomware-canary')">
+          <i class="bi bi-lock-fill text-danger"></i>
+          <div>
+            <div class="fw-semibold text-white">Demo 2: Ransomware Shadow Copy Deletion</div>
+            <div style="font-size: 0.7rem; color: var(--text-dim);">Critical vssadmin mass deletion activity</div>
+          </div>
+        </button>
+
+        <button type="button" class="preset-btn" onclick="loadPreset('aitm-phish')">
+          <i class="bi bi-geo-alt-fill text-warning"></i>
+          <div>
+            <div class="fw-semibold text-white">Demo 3: Impossible Travel Token Theft</div>
+            <div style="font-size: 0.7rem; color: var(--text-dim);">Entra ID session hijacking across geographies</div>
+          </div>
+        </button>
+
+        <button type="button" class="preset-btn" onclick="loadPreset('s3-exfil')">
+          <i class="bi bi-cloud-arrow-up-fill text-cyan"></i>
+          <div>
+            <div class="fw-semibold text-white">Demo 4: Data Exfiltration via Rclone</div>
+            <div style="font-size: 0.7rem; color: var(--text-dim);">Continuous high-bandwidth egress to untrusted S3</div>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- AI Architecture & Flow Explainer -->
+    <div class="soc-card">
+      <div class="soc-card-header">
+        <h2 class="soc-card-title">
+          <i class="bi bi-info-circle-fill"></i> Investigation Pipeline
+        </h2>
+      </div>
+      <div class="d-flex flex-column gap-3" style="font-size: 0.8rem;">
+        <div class="d-flex gap-2">
+          <span class="step-number" style="width: 24px; height: 24px; font-size: 0.72rem;">1</span>
+          <div>
+            <span class="text-white fw-semibold">Entity & IOC Extraction</span>
+            <div class="text-muted-custom" style="font-size: 0.74rem;">Parses IPs, process trees, hashes, and ATT&CK techniques.</div>
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <span class="step-number" style="width: 24px; height: 24px; font-size: 0.72rem;">2</span>
+          <div>
+            <span class="text-white fw-semibold">Hindsight Memory Retrieval</span>
+            <div class="text-muted-custom" style="font-size: 0.74rem;">Vector search across past resolved incidents and lessons learned.</div>
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <span class="step-number" style="width: 24px; height: 24px; font-size: 0.72rem;">3</span>
+          <div>
+            <span class="text-white fw-semibold">LLM Hypothesis & Triage</span>
+            <div class="text-muted-custom" style="font-size: 0.74rem;">Groq/Qwen reasons over observed logs vs historical evidence.</div>
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <span class="step-number" style="width: 24px; height: 24px; font-size: 0.72rem;">4</span>
+          <div>
+            <span class="text-white fw-semibold">Analyst Retention Loop</span>
+            <div class="text-muted-custom" style="font-size: 0.74rem;">Feedback and confirmed outcomes are retained into Hindsight.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Investigation Progress Modal / Overlay -->
+<div class="modal fade" id="investigationModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background-color: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); box-shadow: 0 0 30px rgba(0, 242, 254, 0.2);">
+      <div class="modal-header border-bottom" style="border-color: rgba(56, 189, 248, 0.1) !important;">
+        <h5 class="modal-title d-flex align-items-center gap-2">
+          <span class="spinner-grow spinner-grow-sm text-cyan" role="status"></span>
+          <span>CyberMemory AI Investigation in Progress</span>
+        </h5>
+      </div>
+      <div class="modal-body p-4">
+        <div class="mb-3 text-center">
+          <p class="text-white fw-semibold mb-1" id="analysis-step-title">Initializing SOC Analysis Pipeline...</p>
+          <p class="text-muted-custom small" id="analysis-step-desc">Parsing incoming telemetry logs and extracting suspicious patterns...</p>
+        </div>
+
+        <div class="progress mb-4" style="height: 6px; background-color: #070B14;">
+          <div id="analysis-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 15%; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));"></div>
+        </div>
+
+        <div class="d-flex flex-column gap-2" id="analysis-steps-checklist" style="font-size: 0.78rem;">
+          <div class="d-flex align-items-center gap-2 text-cyan" id="chk-step-1">
+            <i class="bi bi-arrow-repeat spin"></i> <span>1. Ingesting & Validating Security Logs</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 text-muted" id="chk-step-2">
+            <i class="bi bi-circle"></i> <span>2. Extracting IOCs & MITRE ATT&CK Indicators</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 text-muted" id="chk-step-3">
+            <i class="bi bi-circle"></i> <span>3. Semantic Recall from Hindsight Memory Bank</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 text-muted" id="chk-step-4">
+            <i class="bi bi-circle"></i> <span>4. LLM Contextual Reasoning & Hypothesis Generation</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 text-muted" id="chk-step-5">
+            <i class="bi bi-circle"></i> <span>5. Synthesizing Triage Report & Containment Plan</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/investigation.js') }}"></script>
+{% endblock %}
+

@@ -1,4 +1,58 @@
+
+# Environment variables
 .env
+.env.*
+
+# Python virtual environments
 .venv/
+venv/
+env/
+ENV/
+
+# Python cache and compiled files
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Python build files
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Database files
 *.db
+*.sqlite
+*.sqlite3
+
+# Hindsight test data
+hindsight_test_store.json
+
+# Frontend dependencies and builds
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store

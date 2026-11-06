@@ -1,0 +1,492 @@
+{% extends "base.html" %}
+
+{% block title %}Investigation Result - {{ incident.id if incident else 'Detail' }}{% endblock %}
+{% block page_icon %}<i class="bi bi-shield-shaded"></i>{% endblock %}
+{% block page_title %}{{ incident.id if incident else 'Investigation' }}{% endblock %}
+
+{% block content %}
+{% if not incident %}
+<div class="soc-alert soc-alert-safety">
+  <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+  <div>Incident record not found. Return to <a href="{{ url_for('dashboard') }}" class="text-white fw-bold">Dashboard</a>.</div>
+</div>
+{% else %}
+
+<!-- Header Action Strip -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <span class="sev-badge sev-{{ incident.severity | lower }}">{{ incident.severity }}</span>
+      <span class="outcome-badge {% if incident.final_outcome == 'Confirmed Malicious' %}outcome-malicious{% elif incident.final_outcome == 'False Positive' %}outcome-fp{% else %}outcome-investigating{% endif %}" id="current-outcome-badge">
+        {{ incident.final_outcome or 'Under Investigation' }}
+      </span>
+      <span class="text-muted-custom font-mono small">| {{ incident.timestamp }}</span>
+    </div>
+    <h2 class="text-white h4 mb-0">{{ incident.title }}</h2>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('incident_history') }}" class="btn-soc-secondary">
+      <i class="bi bi-arrow-left"></i> Back to Archive
+    </a>
+    <button class="btn-soc-secondary" onclick="window.print()">
+      <i class="bi bi-printer"></i> Print Report
+    </button>
+    <a href="#feedback-section" class="btn-soc-primary">
+      <i class="bi bi-pencil-square"></i> Record Analyst Feedback
+    </a>
+  </div>
+</div>
+
+<!-- Context / Safety Banner -->
+<div class="soc-alert soc-alert-safety mb-4">
+  <i class="bi bi-shield-lock-fill fs-5 text-danger"></i>
+  <div style="font-size: 0.84rem;">
+    <span class="fw-bold text-white">SOC Safety Boundary:</span>
+    All containment measures and hypotheses are generated for human review. In accordance with read-only operational controls, containment actions must be approved and executed manually by the authorized analyst.
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Left Column (Core Incident Findings, IOCs, Steps) -->
+  <div class="col-12 col-xl-8">
+    
+    <!-- 1. Incident Summary & Severity Assessment -->
+    <div class="soc-card mb-4">
+      <div class="soc-card-header">
+        <h3 class="soc-card-title">
+          <i class="bi bi-clipboard-pulse"></i> Executive Incident Summary
+        </h3>
+        <span class="badge" style="background: rgba(56, 189, 248, 0.1); color: var(--accent-blue); font-size: 0.72rem;">
+          Host: <strong class="font-mono text-white">{{ incident.affected_host }}</strong>
+        </span>
+      </div>
+
+      <p class="text-white mb-3" style="font-size: 0.92rem; line-height: 1.6;">
+        {{ incident.incident_summary or incident.description }}
+      </p>
+
+      <div class="p-3 rounded mb-2" style="background: rgba(11, 18, 32, 0.7); border: 1px solid var(--border-color);">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span class="soc-label mb-0">Severity & Confidence Assessment</span>
+          <span class="similarity-badge">Confidence: {{ (incident.confidence_score * 100) | round(0) if incident.confidence_score else 88 }}%</span>
+        </div>
+        <p class="text-muted-custom mb-0 small">
+          {{ incident.confidence_explanation or 'Evaluated based on suspicious process parentage, command line arguments, and correlated historical patterns.' }}
+        </p>
+      </div>
+    </div>
+
+    <!-- 2. Extracted Indicators of Compromise (IOCs) -->
+    <div class="soc-card mb-4">
+      <div class="soc-card-header">
+        <h3 class="soc-card-title">
+          <i class="bi bi-fingerprint text-cyan"></i> Extracted Indicators of Compromise (IOCs)
+        </h3>
+        <span class="badge" style="background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); font-size: 0.72rem;">Automated Artifact Extraction</span>
+      </div>
+
+      <div class="row g-3">
+        <!-- IPs -->
+        <div class="col-12 col-md-6">
+          <span class="soc-label">Network Indicators (IPs)</span>
+          <div class="d-flex flex-wrap gap-2">
+            {% if incident.indicators and incident.indicators.ips %}
+              {% for ip in incident.indicators.ips %}
+                <span class="ioc-chip">
+                  <i class="bi bi-hdd-network"></i> {{ ip }}
+                  <button type="button" onclick="CyberSOC.copyToClipboard('{{ ip }}', this)" title="Copy IP"><i class="bi bi-clipboard"></i></button>
+                </span>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted-custom small">No external IPs detected</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Domains -->
+        <div class="col-12 col-md-6">
+          <span class="soc-label">Domains & URLs</span>
+          <div class="d-flex flex-wrap gap-2">
+            {% if incident.indicators and incident.indicators.domains %}
+              {% for dom in incident.indicators.domains %}
+                <span class="ioc-chip">
+                  <i class="bi bi-globe"></i> {{ dom }}
+                  <button type="button" onclick="CyberSOC.copyToClipboard('{{ dom }}', this)" title="Copy Domain"><i class="bi bi-clipboard"></i></button>
+                </span>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted-custom small">No external domains identified</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Processes -->
+        <div class="col-12 col-md-6">
+          <span class="soc-label">Processes Involved</span>
+          <div class="d-flex flex-wrap gap-2">
+            {% if incident.indicators and incident.indicators.processes %}
+              {% for prc in incident.indicators.processes %}
+                <span class="ioc-chip" style="color: #F87171;">
+                  <i class="bi bi-terminal"></i> {{ prc }}
+                </span>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted-custom small">No anomalous processes extracted</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- MITRE ATT&CK -->
+        <div class="col-12 col-md-6">
+          <span class="soc-label">MITRE ATT&CK Techniques</span>
+          <div class="d-flex flex-wrap gap-2">
+            {% if incident.indicators and incident.indicators.mitre_techniques %}
+              {% for tech in incident.indicators.mitre_techniques %}
+                <span class="mitre-badge">
+                  <i class="bi bi-tag-fill me-1"></i>{{ tech }}
+                </span>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted-custom small">Uncategorized ATT&CK mapping</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Hashes -->
+        {% if incident.indicators and incident.indicators.hashes and incident.indicators.hashes | length > 0 %}
+        <div class="col-12">
+          <span class="soc-label">File Hashes (SHA256 / MD5)</span>
+          <div class="d-flex flex-wrap gap-2">
+            {% for h in incident.indicators.hashes %}
+              <span class="ioc-chip font-mono text-truncate" style="max-width: 100%;">
+                <i class="bi bi-file-earmark-binary"></i> {{ h }}
+                <button type="button" onclick="CyberSOC.copyToClipboard('{{ h }}', this)" title="Copy Hash"><i class="bi bi-clipboard"></i></button>
+              </span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 3. Prioritized Investigation Plan -->
+    <div class="soc-card mb-4">
+      <div class="soc-card-header">
+        <h3 class="soc-card-title">
+          <i class="bi bi-list-check text-cyan"></i> Prioritized Investigation Steps
+        </h3>
+        <span class="badge" style="background: rgba(56, 189, 248, 0.1); color: var(--accent-blue); font-size: 0.72rem;">
+          Synthesized by CyberMemory Agent
+        </span>
+      </div>
+
+      <div class="plan-sequence">
+        {% if incident.investigation_steps %}
+          {% for st in incident.investigation_steps %}
+          <div class="plan-step">
+            <div class="step-number">{{ st.step or loop.index }}</div>
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold text-white">{{ st.action }}</span>
+                <span class="sev-badge sev-{{ (st.priority or 'medium') | lower }}">{{ st.priority or 'Medium' }} Priority</span>
+              </div>
+              <p class="text-muted-custom small mb-2"><strong>Reason:</strong> {{ st.reason }}</p>
+              
+              <div class="row g-2 p-2 rounded" style="background: rgba(11, 18, 32, 0.6); font-size: 0.76rem; border: 1px solid rgba(56, 189, 248, 0.08);">
+                <div class="col-12 col-md-6">
+                  <span class="text-dim">Evidence to Collect:</span>
+                  <span class="text-white d-block font-mono">{{ st.evidence or st.evidence_to_collect or 'Telemetry logs' }}</span>
+                </div>
+                <div class="col-12 col-md-6">
+                  <span class="text-dim">Expected Result:</span>
+                  <span class="text-white d-block">{{ st.expected_result or 'Verify malicious indicator' }}</span>
+                </div>
+                {% if st.historical_reference and st.historical_reference != 'N/A' %}
+                <div class="col-12 pt-1 border-top" style="border-color: rgba(56, 189, 248, 0.08) !important;">
+                  <span class="text-cyan"><i class="bi bi-diagram-3-fill me-1"></i> Sourced from Memory Incident:</span>
+                  <a href="/investigation/{{ st.historical_reference }}" class="font-mono text-cyan fw-bold text-decoration-none ms-1">{{ st.historical_reference }}</a>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted-custom">No sequential steps defined for this alert.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 4. Potential Root Causes & Hypotheses -->
+    <div class="soc-card mb-4">
+      <div class="soc-card-header">
+        <h3 class="soc-card-title">
+          <i class="bi bi-lightbulb-fill text-warning"></i> Potential Root Causes (AI Hypotheses)
+        </h3>
+        <span class="badge" style="background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3); color: #FDE047; font-size: 0.72rem;">
+          Hypothesis vs Confirmed Finding
+        </span>
+      </div>
+
+      <ul class="mb-3 ps-3 text-muted-custom" style="font-size: 0.88rem;">
+        {% if incident.potential_root_causes %}
+          {% for cause in incident.potential_root_causes %}
+            <li class="mb-2"><strong class="text-white">{{ cause }}</strong></li>
+          {% endfor %}
+        {% else %}
+          <li><strong class="text-white">{{ incident.root_cause }}</strong></li>
+        {% endif %}
+      </ul>
+
+      <div class="p-3 rounded" style="background: rgba(11, 18, 32, 0.6); border-left: 3px solid #10B981;">
+        <span class="soc-label text-success mb-1">Confirmed Finding (Post-Triage)</span>
+        <div class="text-white small fw-medium" id="display-confirmed-root-cause">
+          {{ incident.root_cause or 'Awaiting analyst confirmation in feedback section.' }}
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Recommended Containment Actions -->
+    <div class="soc-card mb-4">
+      <div class="soc-card-header">
+        <h3 class="soc-card-title">
+          <i class="bi bi-shield-x text-danger"></i> Recommended Containment Actions
+        </h3>
+        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25" style="font-size: 0.72rem;">
+          Human Approval Required
+        </span>
+      </div>
+
+      <div class="d-flex flex-column gap-2 mb-3">
+        {% if incident.recommended_containment %}
+          {% for action in incident.recommended_containment %}
+            <div class="d-flex align-items-center justify-content-between p-2 rounded" style="background: rgba(11, 18, 32, 0.6); border: 1px solid rgba(239, 68, 68, 0.2);">
+              <span class="text-white small"><i class="bi bi-dash-circle text-danger me-2"></i> {{ action }}</span>
+              <button class="btn-soc-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="CyberSOC.showToast('Action queued for SOC supervisor approval: ' + '{{ action }}')">
+                Authorize Action
+              </button>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted-custom small">{{ incident.remediation }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right Column (Historical Memory Correlation, Raw Telemetry, Analyst Feedback Form) -->
+  <div class="col-12 col-xl-4">
+    
+    <!-- 6. Historical Hindsight Memory Matches -->
+    <div class="soc-card mb-4">
+      <div class="soc-card-header">
+        <h3 class="soc-card-title">
+          <i class="bi bi-diagram-3-fill text-cyan"></i> Hindsight Memory Matches
+        </h3>
+        <span class="badge" style="background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); font-size: 0.72rem;">
+          Vector Recall
+        </span>
+      </div>
+
+      {% if incident.historical_memory_matches and incident.historical_memory_matches | length > 0 %}
+        {% for match in incident.historical_memory_matches %}
+        <div class="memory-match-card">
+          <div class="memory-match-header">
+            <a href="/investigation/{{ match.incident_id }}" class="font-mono fw-bold text-cyan text-decoration-none">
+              <i class="bi bi-box-arrow-up-right me-1"></i>{{ match.incident_id }}
+            </a>
+            <span class="similarity-badge">Match: {{ (match.similarity_score * 100) | round(0) }}%</span>
+          </div>
+          <p class="text-white small mb-2">{{ match.relevance_explanation }}</p>
+          <div class="mb-2" style="font-size: 0.75rem;">
+            <span class="text-dim">Past Root Cause:</span>
+            <span class="text-muted-custom d-block">{{ match.historical_root_cause }}</span>
+          </div>
+          <div style="font-size: 0.75rem;">
+            <span class="text-dim">Lesson Learned:</span>
+            <span class="text-cyan d-block font-italic">"{{ match.lessons_learned }}"</span>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="p-3 text-center rounded" style="background: rgba(11, 18, 32, 0.6); border: 1px dashed var(--border-color);">
+          <i class="bi bi-info-circle text-muted fs-4 d-block mb-1"></i>
+          <span class="text-white fw-semibold small d-block">No Historical Matches Recalled</span>
+          <span class="text-dim" style="font-size: 0.72rem;">This alert is operating in cold baseline mode. Feedback on this investigation will be retained into Hindsight for future encounters.</span>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- 7. Confidence & Operational Limitations -->
+    <div class="soc-card mb-4">
+      <div class="soc-card-header">
+        <h3 class="soc-card-title">
+          <i class="bi bi-shield-lock"></i> Evidence & Limitations
+        </h3>
+      </div>
+      <div class="d-flex flex-column gap-2" style="font-size: 0.78rem;">
+        <div>
+          <span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i> Known & Verified:</span>
+          <p class="text-muted-custom mb-1">Process tree and command line parameters verified from host telemetry logs.</p>
+        </div>
+        <div>
+          <span class="text-warning fw-bold"><i class="bi bi-question-circle-fill me-1"></i> Uncertain & Hypothesized:</span>
+          <p class="text-muted-custom mb-1">External C2 command payload requires sandbox detonation to extract secondary stages.</p>
+        </div>
+        <div>
+          <span class="text-blue fw-bold"><i class="bi bi-arrow-right-circle-fill me-1"></i> Additional Evidence Needed:</span>
+          <p class="text-muted-custom mb-0">Proxy SSL inspection logs and user inbox headers for email origin verification.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. Raw Security Logs Collapsible -->
+    <div class="soc-card mb-4">
+      <div class="soc-card-header">
+        <h3 class="soc-card-title">
+          <i class="bi bi-code-square"></i> Raw Ingested Telemetry
+        </h3>
+        <button class="btn btn-sm btn-outline-secondary py-0 px-2 font-mono text-cyan" type="button" data-bs-toggle="collapse" data-bs-target="#raw-logs-collapse" style="font-size: 0.7rem;">
+          Toggle
+        </button>
+      </div>
+      <div class="collapse show" id="raw-logs-collapse">
+        <pre class="m-0 p-2 rounded font-mono" style="background: #070B14; border: 1px solid var(--border-color); color: #A5B4FC; font-size: 0.72rem; max-height: 200px; overflow-y: auto;">{{ incident.raw_logs or 'No raw telemetry provided.' }}</pre>
+      </div>
+    </div>
+
+    <!-- 9. Analyst Feedback & Hindsight Retention Form -->
+    <div class="soc-card" id="feedback-section" style="border: 1px solid var(--accent-cyan); box-shadow: 0 0 16px rgba(0, 242, 254, 0.1);">
+      <div class="soc-card-header">
+        <h3 class="soc-card-title text-cyan">
+          <i class="bi bi-brain"></i> Analyst Feedback & Retention Loop
+        </h3>
+        <span class="badge" style="background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan); font-size: 0.72rem;">Hindsight Retain</span>
+      </div>
+
+      <p class="text-muted-custom small mb-3">
+        Record your final triage finding. When retained, CyberMemory AI writes this investigation into its persistent Hindsight memory bank to improve future triage accuracy.
+      </p>
+
+      <form id="feedback-form" onsubmit="handleFeedbackSubmit(event, '{{ incident.id }}')">
+        <!-- Rating Options -->
+        <div class="mb-3">
+          <label class="soc-label">AI Recommendation Quality</label>
+          <div class="d-flex gap-2">
+            <input type="radio" class="btn-check" name="rating-option" id="rate-helpful" value="Helpful" {% if not incident.analyst_feedback or incident.analyst_feedback.rating == 'Helpful' %}checked{% endif %}>
+            <label class="btn btn-outline-success btn-sm flex-fill" for="rate-helpful">
+              <i class="bi bi-hand-thumbs-up"></i> Helpful
+            </label>
+
+            <input type="radio" class="btn-check" name="rating-option" id="rate-partial" value="Partially Helpful" {% if incident.analyst_feedback and incident.analyst_feedback.rating == 'Partially Helpful' %}checked{% endif %}>
+            <label class="btn btn-outline-warning btn-sm flex-fill" for="rate-partial">
+              <i class="bi bi-dash"></i> Partial
+            </label>
+
+            <input type="radio" class="btn-check" name="rating-option" id="rate-unhelpful" value="Not Helpful" {% if incident.analyst_feedback and incident.analyst_feedback.rating == 'Not Helpful' %}checked{% endif %}>
+            <label class="btn btn-outline-danger btn-sm flex-fill" for="rate-unhelpful">
+              <i class="bi bi-hand-thumbs-down"></i> Not Helpful
+            </label>
+          </div>
+        </div>
+
+        <!-- Confirmed Final Outcome -->
+        <div class="mb-3">
+          <label class="soc-label" for="confirmed-outcome">Confirmed Investigation Outcome</label>
+          <select id="confirmed-outcome" class="soc-select">
+            <option value="Confirmed Malicious" {% if incident.final_outcome == 'Confirmed Malicious' %}selected{% endif %}>Confirmed Malicious (True Positive)</option>
+            <option value="False Positive" {% if incident.final_outcome == 'False Positive' %}selected{% endif %}>False Positive (Benign Activity)</option>
+            <option value="Inconclusive" {% if incident.final_outcome == 'Inconclusive' or incident.final_outcome == 'Under Investigation' %}selected{% endif %}>Inconclusive / Further Triage</option>
+          </select>
+        </div>
+
+        <!-- Confirmed Root Cause / Notes -->
+        <div class="mb-3">
+          <label class="soc-label" for="confirmed-root-cause">Confirmed Root Cause & Lessons</label>
+          <textarea id="confirmed-root-cause" class="soc-input" rows="2" placeholder="e.g. Weaponized macro attachment confirmed. GPO rule applied.">{{ incident.root_cause or '' }}</textarea>
+        </div>
+
+        <!-- Analyst Comments -->
+        <div class="mb-3">
+          <label class="soc-label" for="analyst-comments">Analyst Review Notes</label>
+          <textarea id="analyst-comments" class="soc-input" rows="2" placeholder="Explain what the AI got right or missed...">{{ incident.analyst_feedback.comments if incident.analyst_feedback else '' }}</textarea>
+        </div>
+
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="chk-retain-hindsight" checked style="background-color: #0A101D; border-color: var(--border-color);">
+          <label class="form-check-label" for="chk-retain-hindsight" style="font-size: 0.78rem; color: var(--text-main);">
+            Persist this experience into Hindsight memory bank
+          </label>
+        </div>
+
+        <button type="submit" id="btn-save-feedback" class="btn-soc-primary w-100 justify-content-center">
+          <i class="bi bi-arrow-repeat"></i> Retain Experience to Hindsight
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function handleFeedbackSubmit(event, incidentId) {
+  event.preventDefault();
+
+  const ratingEl = document.querySelector('input[name="rating-option"]:checked');
+  const rating = ratingEl ? ratingEl.value : 'Helpful';
+  const finalOutcome = document.getElementById('confirmed-outcome').value;
+  const rootCause = document.getElementById('confirmed-root-cause').value.trim();
+  const comments = document.getElementById('analyst-comments').value.trim();
+  const retain = document.getElementById('chk-retain-hindsight').checked;
+
+  const btn = document.getElementById('btn-save-feedback');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Retaining into Hindsight...';
+
+  try {
+    const payload = {
+      rating,
+      final_outcome: finalOutcome,
+      root_cause_confirmed: rootCause,
+      comments,
+      analyst_id: 'SOC_Analyst_Current',
+      retain_to_hindsight: retain
+    };
+
+    const res = await CyberMemoryAPI.submitFeedback(incidentId, payload);
+    CyberSOC.showToast(`Feedback retained! Node: ${res.retained_memory_id || 'OK'}`);
+
+    // Update UI outcome badge
+    const badge = document.getElementById('current-outcome-badge');
+    if (badge) {
+      badge.textContent = finalOutcome;
+      badge.className = `outcome-badge ${finalOutcome === 'Confirmed Malicious' ? 'outcome-malicious' : (finalOutcome === 'False Positive' ? 'outcome-fp' : 'outcome-investigating')}`;
+    }
+
+    const causeDisplay = document.getElementById('display-confirmed-root-cause');
+    if (causeDisplay && rootCause) {
+      causeDisplay.textContent = rootCause;
+    }
+
+    btn.innerHTML = '<i class="bi bi-check2-circle text-dark"></i> Experience Retained';
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Retain Experience to Hindsight';
+    }, 2500);
+
+  } catch (err) {
+    console.error('Feedback error:', err);
+    CyberSOC.showToast(`Failed to retain feedback: ${err.message}`, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Retain Experience to Hindsight';
+  }
+}
+</script>
+{% endblock %}
+

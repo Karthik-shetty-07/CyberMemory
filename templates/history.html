@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Incident History & Archive{% endblock %}
+{% block page_icon %}<i class="bi bi-journal-text"></i>{% endblock %}
+{% block page_title %}Incidents{% endblock %}
+
+{% block content %}
+<!-- Top Search & Filtering Control Bar -->
+<div class="soc-card mb-4">
+  <div class="row g-3 align-items-center">
+    <!-- Search Query Input -->
+    <div class="col-12 col-md-4">
+      <label class="soc-label" for="search-input">Search Query / IOC / Host / ID</label>
+      <div class="input-group">
+        <span class="input-group-text font-mono" style="background: #0A101D; border-color: var(--border-color); color: var(--accent-cyan);"><i class="bi bi-search"></i></span>
+        <input type="text" id="search-input" class="soc-input" placeholder="e.g. powershell, 198.51.100, INC-2026-0801..." oninput="debounceSearch()">
+      </div>
+    </div>
+
+    <!-- Severity Filter -->
+    <div class="col-6 col-md-2">
+      <label class="soc-label" for="filter-severity">Severity</label>
+      <select id="filter-severity" class="soc-select" onchange="filterIncidents()">
+        <option value="all">All Severities</option>
+        <option value="Critical">Critical</option>
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+      </select>
+    </div>
+
+    <!-- Alert Type Filter -->
+    <div class="col-6 col-md-3">
+      <label class="soc-label" for="filter-type">Incident Category</label>
+      <select id="filter-type" class="soc-select" onchange="filterIncidents()">
+        <option value="all">All Threat Types</option>
+        <option value="Suspicious PowerShell execution">Suspicious PowerShell</option>
+        <option value="Ransomware behavior">Ransomware Activity</option>
+        <option value="Phishing and malicious attachments">Phishing & Attachments</option>
+        <option value="Brute-force login attempts">Brute-Force & Spraying</option>
+        <option value="Suspicious outbound connections">C2 & Outbound Telemetry</option>
+        <option value="Malware persistence">Malware Persistence</option>
+        <option value="Privilege escalation indicators">Privilege Escalation</option>
+        <option value="Unusual account activity">Unusual Account Activity</option>
+        <option value="Data exfiltration indicators">Data Exfiltration</option>
+        <option value="Web server compromise">Web Server Compromise</option>
+      </select>
+    </div>
+
+    <!-- Outcome Filter -->
+    <div class="col-6 col-md-2">
+      <label class="soc-label" for="filter-outcome">Outcome</label>
+      <select id="filter-outcome" class="soc-select" onchange="filterIncidents()">
+        <option value="all">All Outcomes</option>
+        <option value="Confirmed Malicious">Confirmed Malicious</option>
+        <option value="False Positive">False Positive</option>
+        <option value="Under Investigation">Under Investigation</option>
+      </select>
+    </div>
+
+    <!-- Reset & Export Buttons -->
+    <div class="col-6 col-md-1 d-flex align-items-end pt-3">
+      <button class="btn-soc-secondary w-100 justify-content-center" onclick="resetFilters()" title="Reset Filters">
+        <i class="bi bi-arrow-counterclockwise"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Incidents Table Card -->
+<div class="soc-card">
+  <div class="soc-card-header">
+    <div class="d-flex align-items-center gap-2">
+      <h2 class="soc-card-title">
+        <i class="bi bi-archive-fill"></i> Historical Incidents
+      </h2>
+      <span class="badge" id="incident-count-badge" style="background: rgba(0, 242, 254, 0.15); border: 1px solid rgba(0, 242, 254, 0.3); color: var(--accent-cyan); font-size: 0.72rem;">
+        0 Incidents
+      </span>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button class="btn-soc-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.78rem;" onclick="exportIncidentsJson()">
+        <i class="bi bi-download"></i> Export JSON
+      </button>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table-soc" id="history-table">
+      <thead>
+        <tr>
+          <th>Incident ID</th>
+          <th>Severity</th>
+          <th>Title & Primary Finding</th>
+          <th>Affected Host</th>
+          <th>Category</th>
+          <th>Outcome</th>
+          <th>Feedback</th>
+          <th>Timestamp</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="history-table-body">
+        <tr>
+          <td colspan="9" class="text-center text-muted-custom py-4">
+            <span class="spinner-border spinner-border-sm text-cyan me-2"></span> Loading historical incident archive...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/history.js') }}"></script>
+{% endblock %}
+
