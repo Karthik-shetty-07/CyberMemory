@@ -113,3 +113,4 @@ def test_learning_analytics_api(client):
     assert 'total_memories' in data
     assert 'triage_time_reduction_percentage' in data
     assert data['triage_time_reduction_percentage'] > 70
+

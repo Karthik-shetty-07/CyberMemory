@@ -211,3 +211,4 @@ function renderFeedbackDistribution(dist) {
   const config = { responsive: true, displayModeBar: false };
   Plotly.newPlot('chart-feedback-distribution', data, layout, config);
 }
+

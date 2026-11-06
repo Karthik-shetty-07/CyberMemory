@@ -180,3 +180,4 @@ function textEscape(str) {
   p.appendChild(document.createTextNode(str));
   return p.innerHTML;
 }
+
