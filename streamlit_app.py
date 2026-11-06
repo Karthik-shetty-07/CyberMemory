@@ -478,3 +478,4 @@ elif nav_choice == "Settings":
     st.markdown("### Test Suite Status")
     st.success("✅ Automated Test Suite: 19 Tests Passed / 0 Failed (100% Pass Rate)")
     st.code("python3 -m unittest discover -s tests -p 'test_*.py' -v")
+

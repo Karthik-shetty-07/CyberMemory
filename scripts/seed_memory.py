@@ -41,3 +41,4 @@ def seed(bank_id: str = "cybermemory_soc_demo", force_mock: bool = False):
 if __name__ == "__main__":
     target = sys.argv[1] if len(sys.argv) > 1 else "cybermemory_soc_demo"
     seed(bank_id=target)
+
