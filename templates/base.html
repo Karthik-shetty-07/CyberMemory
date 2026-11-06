@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,9 @@
   <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
 
   <!-- Bootstrap 5.3 CSS & Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -21,218 +24,227 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cyber-soc.css') }}">
   {% block extra_head %}{% endblock %}
 </head>
+
 <body>
 
-<div class="app-frame">
-  <!-- Left Navigation Sidebar -->
-  <aside class="soc-sidebar">
-    <a href="{{ url_for('dashboard') }}" class="soc-brand">
-      <div class="soc-brand-icon">
-        <i class="bi bi-shield-shaded"></i>
-      </div>
-      <div>
-        <div class="soc-brand-title">CyberMemory</div>
-        <div class="soc-brand-subtitle">SOC Memory AI</div>
-      </div>
-    </a>
-
-    <!-- Primary Navigation Links -->
-    <nav class="sidebar-nav">
-      <a href="{{ url_for('dashboard') }}" class="nav-item-link {% if active_page == 'dashboard' %}active{% endif %}">
-        <i class="bi bi-house-door-fill"></i>
-        <span>Dashboard</span>
-      </a>
-      <a href="{{ url_for('investigate') }}" class="nav-item-link {% if active_page == 'investigate' %}active{% endif %}">
-        <i class="bi bi-cpu-fill"></i>
-        <span>New Investigation</span>
-      </a>
-      <a href="{{ url_for('incident_history') }}" class="nav-item-link {% if active_page == 'history' %}active{% endif %}">
-        <i class="bi bi-journal-bookmark-fill"></i>
-        <span>Incident History</span>
-      </a>
-      <a href="{{ url_for('memory_explorer') }}" class="nav-item-link {% if active_page == 'memory' %}active{% endif %}">
-        <i class="bi bi-diagram-3-fill"></i>
-        <span>Memory Explorer</span>
-      </a>
-      <a href="{{ url_for('learning_analytics') }}" class="nav-item-link {% if active_page == 'analytics' %}active{% endif %}">
-        <i class="bi bi-graph-up-arrow"></i>
-        <span>Learning Analytics</span>
-      </a>
-    </nav>
-
-    <!-- Recent Investigations Section (Matching Reference UI) -->
-    <div class="sidebar-recent-section">
-      <div class="sidebar-recent-header">
-        <span>Recent Investigations</span>
-        <i class="bi bi-clock-history"></i>
-      </div>
-      <div class="sidebar-recent-list" id="sidebar-recent-list">
-        <!-- Rendered via JS -->
-        <a href="/investigation/INC-2026-0801" class="sidebar-recent-item">
-          <span class="sidebar-recent-title">Encoded PowerShell Fin...</span>
-          <span class="sidebar-recent-meta"><span class="text-danger">Critical</span> • Today</span>
-        </a>
-        <a href="/investigation/INC-2026-0803" class="sidebar-recent-item">
-          <span class="sidebar-recent-title">Ransomware Shadow Co...</span>
-          <span class="sidebar-recent-meta"><span class="text-danger">Critical</span> • Today</span>
-        </a>
-        <a href="/investigation/INC-2026-0804" class="sidebar-recent-item">
-          <span class="sidebar-recent-title">Sliver C2 Beaconing...</span>
-          <span class="sidebar-recent-meta"><span class="text-warning">High</span> • Yesterday</span>
-        </a>
-        <a href="/investigation/INC-2026-0807" class="sidebar-recent-item">
-          <span class="sidebar-recent-title">Impossible Travel Entra...</span>
-          <span class="sidebar-recent-meta"><span class="text-info">Medium</span> • 2d ago</span>
-        </a>
-      </div>
-      <a href="{{ url_for('incident_history') }}" class="sidebar-view-all">
-        <span>View all investigations</span>
-        <i class="bi bi-arrow-right"></i>
-      </a>
-    </div>
-  </aside>
-
-  <!-- Center Main Canvas -->
-  <main class="soc-main">
-    <!-- Topbar -->
-    <header class="soc-topbar">
-      <!-- Universal Search Bar -->
-      <div class="topbar-search-box">
-        <i class="bi bi-search topbar-search-icon"></i>
-        <input type="text" id="global-search-input" class="topbar-search-input" placeholder="Search incidents, IOCs, hosts, or memory..." onkeydown="handleGlobalSearch(event)">
-        <span class="topbar-kbd-shortcut">⌘K</span>
-      </div>
-
-      <!-- Topbar Action Items -->
-      <div class="topbar-actions">
-        <a href="{{ url_for('investigate') }}" class="btn-glass-primary">
-          <i class="bi bi-plus-lg"></i>
-          <span>New Investigation</span>
+    <div class="app-frame">
+      <!-- Left Navigation Sidebar -->
+      <aside class="soc-sidebar">
+        <a href="{{ url_for('dashboard') }}" class="soc-brand">
+          <div class="soc-brand-icon">
+            <i class="bi bi-shield-shaded"></i>
+          </div>
+            <div>
+              <div class="soc-brand-title">CyberMemory</div>
+              <div class="soc-brand-subtitle">SOC Memory AI</div>
+            </div>
         </a>
 
-        <button type="button" class="icon-btn-glass" title="Live SOC Telemetry Active">
-          <i class="bi bi-bell-fill"></i>
-        </button>
+        <!-- Primary Navigation Links -->
+        <nav class="sidebar-nav">
+          <a href="{{ url_for('dashboard') }}"
+            class="nav-item-link {% if active_page == 'dashboard' %}active{% endif %}">
+            <i class="bi bi-house-door-fill"></i>
+            <span>Dashboard</span>
+          </a>
+          <a href="{{ url_for('investigate') }}"
+            class="nav-item-link {% if active_page == 'investigate' %}active{% endif %}">
+            <i class="bi bi-cpu-fill"></i>
+            <span>New Investigation</span>
+          </a>
+          <a href="{{ url_for('incident_history') }}"
+            class="nav-item-link {% if active_page == 'history' %}active{% endif %}">
+            <i class="bi bi-journal-bookmark-fill"></i>
+            <span>Incident History</span>
+          </a>
+          <a href="{{ url_for('memory_explorer') }}"
+            class="nav-item-link {% if active_page == 'memory' %}active{% endif %}">
+            <i class="bi bi-diagram-3-fill"></i>
+            <span>Memory Explorer</span>
+          </a>
+          <a href="{{ url_for('learning_analytics') }}"
+            class="nav-item-link {% if active_page == 'analytics' %}active{% endif %}">
+            <i class="bi bi-graph-up-arrow"></i>
+            <span>Learning Analytics</span>
+          </a>
+        </nav>
 
-        <div class="topbar-avatar" title="Logged in as Tier-2 SOC Responder">
-          AN
+            <!-- Recent Investigations Section (Matching Reference UI) -->
+            <div class="sidebar-recent-section">
+              <div class="sidebar-recent-header">
+                <span>Recent Investigations</span>
+                <i class="bi bi-clock-history"></i>
+              </div>
+              <div class="sidebar-recent-list" id="sidebar-recent-list">
+                <!-- Rendered via JS -->
+                <a href="/investigation/INC-2026-0801" class="sidebar-recent-item">
+                  <span class="sidebar-recent-title">Encoded PowerShell Fin...</span>
+                  <span class="sidebar-recent-meta"><span class="text-danger">Critical</span> • Today</span>
+                </a>
+                <a href="/investigation/INC-2026-0803" class="sidebar-recent-item">
+                  <span class="sidebar-recent-title">Ransomware Shadow Co...</span>
+                  <span class="sidebar-recent-meta"><span class="text-danger">Critical</span> • Today</span>
+                </a>
+                <a href="/investigation/INC-2026-0804" class="sidebar-recent-item">
+                  <span class="sidebar-recent-title">Sliver C2 Beaconing...</span>
+                  <span class="sidebar-recent-meta"><span class="text-warning">High</span> • Yesterday</span>
+                </a>
+                <a href="/investigation/INC-2026-0807" class="sidebar-recent-item">
+                  <span class="sidebar-recent-title">Impossible Travel Entra...</span>
+                  <span class="sidebar-recent-meta"><span class="text-info">Medium</span> • 2d ago</span>
+                </a>
+              </div>
+              <a href="{{ url_for('incident_history') }}" class="sidebar-view-all">
+                <span>View all investigations</span>
+                <i class="bi bi-arrow-right"></i>
+              </a>
+            </div>
+      </aside>
+
+      <!-- Center Main Canvas -->
+      <main class="soc-main">
+        <!-- Topbar -->
+        <header class="soc-topbar">
+            <!-- Universal Search Bar -->
+            <div class="topbar-search-box">
+              <i class="bi bi-search topbar-search-icon"></i>
+              <input type="text" id="global-search-input" class="topbar-search-input"
+                placeholder="Search incidents, IOCs, hosts, or memory..." onkeydown="handleGlobalSearch(event)">
+              <span class="topbar-kbd-shortcut">⌘K</span>
+            </div>
+
+              <!-- Topbar Action Items -->
+              <div class="topbar-actions">
+                <a href="{{ url_for('investigate') }}" class="btn-glass-primary">
+                  <i class="bi bi-plus-lg"></i>
+                  <span>New Investigation</span>
+                </a>
+
+                <button type="button" class="icon-btn-glass" title="Live SOC Telemetry Active">
+                  <i class="bi bi-bell-fill"></i>
+                </button>
+
+                  <div class="topbar-avatar" title="Logged in as Tier-2 SOC Responder">
+                    AN
+                  </div>
+                </div>
+        </header>
+
+        <!-- Page Body -->
+        <div class="page-container">
+          {% block content %}{% endblock %}
         </div>
-      </div>
-    </header>
+      </main>
 
-    <!-- Page Body -->
-    <div class="page-container">
-      {% block content %}{% endblock %}
+      <!-- Right Intelligence Panel (The Glass Widget Dock from Reference UI) -->
+      <aside class="soc-right-panel">
+        <!-- Model & Hindsight Engine Card -->
+        <div class="glass-engine-card">
+          <div class="engine-badge">
+            <i class="bi bi-stars"></i>
+            <span>Groq + Hindsight</span>
+          </div>
+          <div class="engine-desc">
+            Autonomous SOC reasoning enhanced by persistent cross-session memory banks.
+          </div>
+
+          <!-- 3D Floating Prism / Memory Core Graphic -->
+          <div class="engine-prism-box">
+            <div class="prism-ring"></div>
+            <div class="prism-orb"></div>
+          </div>
+        </div>
+
+        <!-- SOC Capabilities Checklist -->
+        <div class="capabilities-card">
+          <div class="cap-card-title">Agent Capabilities</div>
+          <div class="cap-item">
+            <span><i class="bi bi-search me-2"></i>IOC Extraction</span>
+            <i class="bi bi-check2 check"></i>
+          </div>
+          <div class="cap-item">
+            <span><i class="bi bi-diagram-3 me-2"></i>Hindsight Vector Recall</span>
+            <i class="bi bi-check2 check"></i>
+          </div>
+          <div class="cap-item">
+            <span><i class="bi bi-shield-shaded me-2"></i>MITRE ATT&CK Mapping</span>
+            <i class="bi bi-check2 check"></i>
+          </div>
+          <div class="cap-item">
+            <span><i class="bi bi-arrow-repeat me-2"></i>Feedback Memory Retention</span>
+            <i class="bi bi-check2 check"></i>
+          </div>
+        </div>
+
+        <!-- Live SOC Activity Sparkline Card -->
+        <div class="activity-card">
+          <div class="cap-card-title">Your Activity</div>
+          <div class="activity-row">
+            <span class="text-muted-custom">Incidents Triaged</span>
+            <span class="activity-val" id="sidebar-activity-triaged">20</span>
+          </div>
+          <div class="activity-row">
+            <span class="text-muted-custom">Memories Recalled</span>
+            <span class="activity-val" id="sidebar-activity-recalled">87</span>
+          </div>
+          <div class="activity-row">
+            <span class="text-muted-custom">Turnaround Saved</span>
+            <span class="activity-val text-cyan">-81.3%</span>
+          </div>
+
+          <!-- Mini Luminous SVG Sparkline -->
+          <svg class="mini-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparkGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#A855F7" stop-opacity="0.6" />
+                <stop offset="100%" stop-color="#06B6D4" stop-opacity="0.0" />
+              </linearGradient>
+            </defs>
+            <path d="M 0,20 Q 15,22 25,14 T 50,11 T 75,5 T 100,2 L 100,24 L 0,24 Z" fill="url(#sparkGrad)" />
+            <path d="M 0,20 Q 15,22 25,14 T 50,11 T 75,5 T 100,2" fill="none" stroke="#A855F7" stroke-width="2" />
+          </svg>
+        </div>
+
+        <!-- Memory Bank Status Pill -->
+        <div class="p-2 rounded d-flex align-items-center gap-2"
+          style="background: rgba(18, 14, 32, 0.7); border: 1px solid var(--glass-border); font-size: 0.75rem;">
+          <i class="bi bi-database-fill-check text-cyan"></i>
+          <div class="flex-grow-1">
+            <div class="text-white fw-semibold" style="font-size: 0.72rem;">Memory Bank: Online</div>
+            <div class="font-mono text-cyan" style="font-size: 0.65rem;">cybermemory-soc-v1</div>
+          </div>
+          <span class="pulse-dot"></span>
+        </div>
+      </aside>
     </div>
-  </main>
 
-  <!-- Right Intelligence Panel (The Glass Widget Dock from Reference UI) -->
-  <aside class="soc-right-panel">
-    <!-- Model & Hindsight Engine Card -->
-    <div class="glass-engine-card">
-      <div class="engine-badge">
-        <i class="bi bi-stars"></i>
-        <span>Groq + Hindsight</span>
-      </div>
-      <div class="engine-desc">
-        Autonomous SOC reasoning enhanced by persistent cross-session memory banks.
-      </div>
+    <!-- Bootstrap 5.3 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-      <!-- 3D Floating Prism / Memory Core Graphic -->
-      <div class="engine-prism-box">
-        <div class="prism-ring"></div>
-        <div class="prism-orb"></div>
-      </div>
-    </div>
+    <!-- API Client -->
+    <script src="{{ url_for('static', filename='js/api-client.js') }}"></script>
 
-    <!-- SOC Capabilities Checklist -->
-    <div class="capabilities-card">
-      <div class="cap-card-title">Agent Capabilities</div>
-      <div class="cap-item">
-        <span><i class="bi bi-search me-2"></i>IOC Extraction</span>
-        <i class="bi bi-check2 check"></i>
-      </div>
-      <div class="cap-item">
-        <span><i class="bi bi-diagram-3 me-2"></i>Hindsight Vector Recall</span>
-        <i class="bi bi-check2 check"></i>
-      </div>
-      <div class="cap-item">
-        <span><i class="bi bi-shield-shaded me-2"></i>MITRE ATT&CK Mapping</span>
-        <i class="bi bi-check2 check"></i>
-      </div>
-      <div class="cap-item">
-        <span><i class="bi bi-arrow-repeat me-2"></i>Feedback Memory Retention</span>
-        <i class="bi bi-check2 check"></i>
-      </div>
-    </div>
+    <!-- Global Top Search Keyboard Shortcut -->
+    <script>
+        document.addEventListener('keydown', (e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            const input = document.getElementById('global-search-input');
+            if (input) input.focus();
+          }
+        });
 
-    <!-- Live SOC Activity Sparkline Card -->
-    <div class="activity-card">
-      <div class="cap-card-title">Your Activity</div>
-      <div class="activity-row">
-        <span class="text-muted-custom">Incidents Triaged</span>
-        <span class="activity-val" id="sidebar-activity-triaged">20</span>
-      </div>
-      <div class="activity-row">
-        <span class="text-muted-custom">Memories Recalled</span>
-        <span class="activity-val" id="sidebar-activity-recalled">87</span>
-      </div>
-      <div class="activity-row">
-        <span class="text-muted-custom">Turnaround Saved</span>
-        <span class="activity-val text-cyan">-81.3%</span>
-      </div>
+        function handleGlobalSearch(e) {
+          if (e.key === 'Enter') {
+            const q = e.target.value.trim();
+            if (q) {
+              window.location.href = `/history?query=${encodeURIComponent(q)}`;
+            }
+          }
+        }
+    </script>
 
-      <!-- Mini Luminous SVG Sparkline -->
-      <svg class="mini-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="sparkGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#A855F7" stop-opacity="0.6"/>
-            <stop offset="100%" stop-color="#06B6D4" stop-opacity="0.0"/>
-          </linearGradient>
-        </defs>
-        <path d="M 0,20 Q 15,22 25,14 T 50,11 T 75,5 T 100,2 L 100,24 L 0,24 Z" fill="url(#sparkGrad)"/>
-        <path d="M 0,20 Q 15,22 25,14 T 50,11 T 75,5 T 100,2" fill="none" stroke="#A855F7" stroke-width="2"/>
-      </svg>
-    </div>
-
-    <!-- Memory Bank Status Pill -->
-    <div class="p-2 rounded d-flex align-items-center gap-2" style="background: rgba(18, 14, 32, 0.7); border: 1px solid var(--glass-border); font-size: 0.75rem;">
-      <i class="bi bi-database-fill-check text-cyan"></i>
-      <div class="flex-grow-1">
-        <div class="text-white fw-semibold" style="font-size: 0.72rem;">Memory Bank: Online</div>
-        <div class="font-mono text-cyan" style="font-size: 0.65rem;">cybermemory-soc-v1</div>
-      </div>
-      <span class="pulse-dot"></span>
-    </div>
-  </aside>
-</div>
-
-<!-- Bootstrap 5.3 JS Bundle -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-<!-- API Client -->
-<script src="{{ url_for('static', filename='js/api-client.js') }}"></script>
-
-<!-- Global Top Search Keyboard Shortcut -->
-<script>
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      const input = document.getElementById('global-search-input');
-      if (input) input.focus();
-    }
-  });
-
-  function handleGlobalSearch(e) {
-    if (e.key === 'Enter') {
-      const q = e.target.value.trim();
-      if (q) {
-        window.location.href = `/history?query=${encodeURIComponent(q)}`;
-      }
-    }
-  }
-</script>
-
-{% block scripts %}{% endblock %}
+    {% block scripts %}{% endblock %}
 </body>
+
 </html>
