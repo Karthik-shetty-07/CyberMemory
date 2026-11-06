@@ -56,3 +56,9 @@ dist/
 
 # OS files
 .DS_Store
+
+# Local certificates
+kaspersky-root.cer
+
+# Allow safe example configuration
+!.env.example
