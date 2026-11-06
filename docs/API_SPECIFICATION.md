@@ -204,3 +204,4 @@ Accepts a multipart file upload (`file=@log.txt`). Enforces:
   "message": "File rejected: Dangerous executable or binary format detected (Magic byte check: b'MZ')"
 }
 ```
+
