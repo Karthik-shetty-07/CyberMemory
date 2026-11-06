@@ -28,3 +28,4 @@ Persistent memory transforms LLMs from disposable chatbots into reliable operati
 ```text
 Here's a link to Hindsight if you want to check it out: https://github.com/vectorize-io/hindsight
 ```
+

@@ -8,11 +8,30 @@ import os
 import json
 import uuid
 from datetime import datetime, timezone
+import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'cybermemory-sec-key-2026')
 app.config['JSON_SORT_KEYS'] = False
+
+BACKEND_API_URL = os.environ.get('BACKEND_API_URL', '').rstrip('/')
+
+def try_backend_proxy(endpoint, method='GET', data=None, params=None):
+    """Proxy request to backend FastAPI if BACKEND_API_URL is configured."""
+    if not BACKEND_API_URL:
+        return None
+    try:
+        url = f"{BACKEND_API_URL}{endpoint}"
+        if method == 'POST':
+            res = requests.post(url, json=data, params=params, timeout=4)
+        else:
+            res = requests.get(url, params=params, timeout=4)
+        if res.ok:
+            return res.json()
+    except Exception as e:
+        print(f"[Backend Proxy] Notice: {BACKEND_API_URL} unreachable ({e}). Using in-memory engine fallback.")
+    return None
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), 'static', 'data', 'synthetic_incidents.json')
 
@@ -98,6 +117,10 @@ def learning_analytics():
 @app.route('/api/dashboard/stats', methods=['GET'])
 def get_dashboard_stats():
     """Returns high-level SOC dashboard metrics"""
+    proxy = try_backend_proxy('/api/dashboard/stats')
+    if proxy:
+        return jsonify(proxy)
+
     total = len(incidents_db)
     resolved = sum(1 for i in incidents_db if i.get('final_outcome') in ['Confirmed Malicious', 'False Positive'])
     helpful = sum(1 for i in incidents_db if i.get('analyst_feedback', {}).get('rating') == 'Helpful')

@@ -49,3 +49,4 @@
 Aspect Ratio: 16:9
 Prompt: A futuristic, sleek cybersecurity operations command center with floating translucent purple and cyan glowing glass interface cards. In the center, an illuminated AI glowing core orb with neural memory pathways connecting to digital server nodes. Bold, readable neon typography in the upper corner: 'AI SOC ANALYST WITH MEMORY'. High contrast, cinematic dramatic rim lighting, photorealistic, Unreal Engine 5 aesthetic, no clutter.
 ```
+
