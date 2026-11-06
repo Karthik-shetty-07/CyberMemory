@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Hindsight Memory Explorer{% endblock %}
+{% block page_icon %}<i class="bi bi-diagram-3-fill"></i>{% endblock %}
+{% block page_title %}Memory{% endblock %}
+
+{% block content %}
+<!-- Memory Intelligence Header Banner -->
+<div class="soc-alert soc-alert-info mb-4 d-flex justify-content-between align-items-center">
+  <div class="d-flex align-items-center gap-2">
+    <i class="bi bi-database-check text-cyan fs-5"></i>
+    <div>
+      <span class="fw-bold text-white">Transparent Agent Memory:</span>
+      <span class="text-muted-custom"> Unlike stateless chatbots, CyberMemory AI retains confirmed triage findings, verified root causes, and successful playbooks into Vectorize Hindsight memory banks.</span>
+    </div>
+  </div>
+  <span class="badge" style="background: rgba(0, 242, 254, 0.15); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.75rem;">
+    Bank: cybermemory-soc-v1
+  </span>
+</div>
+
+<!-- Semantic Memory Search Card -->
+<div class="soc-card mb-4">
+  <div class="soc-card-header">
+    <h2 class="soc-card-title">
+      <i class="bi bi-search text-cyan"></i> Semantic Memory Retrieval Interface
+    </h2>
+    <span style="font-size: 0.72rem; color: var(--text-dim);">Natural language vector recall</span>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-10">
+      <div class="input-group">
+        <span class="input-group-text font-mono" style="background: #0A101D; border-color: var(--border-color); color: var(--accent-cyan);">
+          <i class="bi bi-cpu"></i>
+        </span>
+        <input type="text" id="memory-search-input" class="soc-input" placeholder="Query Hindsight memory: e.g. 'powershell encoded download', 'vssadmin delete shadows', 'rclone s3 exfiltration'..." onkeydown="if(event.key==='Enter') executeMemorySearch()">
+      </div>
+    </div>
+    <div class="col-12 col-md-2">
+      <button class="btn-soc-primary w-100 justify-content-center" onclick="executeMemorySearch()">
+        <i class="bi bi-diagram-3"></i> Query Memory
+      </button>
+    </div>
+  </div>
+
+  <!-- Quick Query Chips -->
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    <span style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600;">Sample Queries:</span>
+    <button class="preset-btn" onclick="quickMemorySearch('powershell download')">
+      <i class="bi bi-tag-fill text-cyan"></i> PowerShell Download
+    </button>
+    <button class="preset-btn" onclick="quickMemorySearch('ransomware shadow copy')">
+      <i class="bi bi-tag-fill text-danger"></i> Ransomware Shadows
+    </button>
+    <button class="preset-btn" onclick="quickMemorySearch('password spray kerberos')">
+      <i class="bi bi-tag-fill text-warning"></i> Kerberos Spray
+    </button>
+    <button class="preset-btn" onclick="quickMemorySearch('rclone data exfiltration')">
+      <i class="bi bi-tag-fill text-blue"></i> Cloud Exfiltration
+    </button>
+    <button class="preset-btn" onclick="quickMemorySearch('webshell upload')">
+      <i class="bi bi-tag-fill text-info"></i> Webshell PHP
+    </button>
+  </div>
+</div>
+
+<!-- Tabs for Memory Categories: All Retained Incidents, Investigation Patterns, Successful Remediations -->
+<ul class="nav nav-tabs mb-4 border-bottom" style="border-color: var(--border-color) !important;">
+  <li class="nav-item">
+    <button class="nav-link active text-white" id="tab-all-memories" data-bs-toggle="tab" data-bs-target="#content-all-memories" type="button" style="background: transparent; border: none; border-bottom: 2px solid var(--accent-cyan); font-size: 0.88rem; font-weight: 600;">
+      <i class="bi bi-hdd-stack text-cyan me-1"></i> Retained Incident Memories (<span id="retained-count">0</span>)
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link text-muted-custom" id="tab-remediations" data-bs-toggle="tab" data-bs-target="#content-remediations" type="button" style="background: transparent; border: none; font-size: 0.88rem; font-weight: 600;">
+      <i class="bi bi-shield-check text-success me-1"></i> Successful Remediation Strategies
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link text-muted-custom" id="tab-patterns" data-bs-toggle="tab" data-bs-target="#content-patterns" type="button" style="background: transparent; border: none; font-size: 0.88rem; font-weight: 600;">
+      <i class="bi bi-repeat text-warning me-1"></i> Recurring Attack Patterns
+    </button>
+  </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content">
+  <!-- 1. All Retained Memories Grid -->
+  <div class="tab-pane fade show active" id="content-all-memories">
+    <div class="row g-3" id="memories-grid-container">
+      <div class="col-12 text-center text-muted-custom py-5">
+        <span class="spinner-border spinner-border-sm text-cyan me-2"></span> Inspecting Hindsight persistent memory bank...
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Successful Remediation Strategies -->
+  <div class="tab-pane fade" id="content-remediations">
+    <div class="soc-card">
+      <div class="soc-card-header">
+        <h3 class="soc-card-title text-success">
+          <i class="bi bi-shield-fill-check"></i> High-Confidence Remediation Playbooks
+        </h3>
+        <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #86EFAC; font-size: 0.72rem;">Validated by SOC Responders</span>
+      </div>
+      <div id="remediations-list" class="d-flex flex-column gap-3">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Recurring Threat Patterns -->
+  <div class="tab-pane fade" id="content-patterns">
+    <div class="soc-card">
+      <div class="soc-card-header">
+        <h3 class="soc-card-title text-warning">
+          <i class="bi bi-diagram-2"></i> Synthesized Investigation Heuristics
+        </h3>
+        <span class="badge" style="background: rgba(234, 179, 8, 0.15); color: #FDE047; font-size: 0.72rem;">Hindsight Reflection</span>
+      </div>
+      <div id="patterns-list" class="d-flex flex-column gap-3">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Memory Inspection Modal -->
+<div class="modal fade" id="memoryDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content" style="background-color: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main);">
+      <div class="modal-header border-bottom" style="border-color: rgba(56, 189, 248, 0.1) !important;">
+        <h5 class="modal-title d-flex align-items-center gap-2">
+          <i class="bi bi-cpu text-cyan"></i>
+          <span id="modal-memory-id" class="font-mono text-cyan">MEM-ID</span>
+          <span id="modal-memory-title" class="text-white small fw-normal ms-2"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4" id="modal-memory-body">
+        <!-- Populated via JS -->
+      </div>
+      <div class="modal-footer border-top" style="border-color: rgba(56, 189, 248, 0.1) !important;">
+        <button type="button" class="btn-soc-secondary" data-bs-dismiss="modal">Close Inspector</button>
+        <a id="modal-view-incident-btn" href="#" class="btn-soc-primary">
+          <i class="bi bi-box-arrow-up-right"></i> View Full Incident Report
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/memory.js') }}"></script>
+{% endblock %}
+

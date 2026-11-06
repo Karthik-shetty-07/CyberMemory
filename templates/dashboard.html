@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dash-toolbar">
+  <div class="range-pills" role="tablist" aria-label="Chart range">
+    <button type="button" data-range="day">Day</button>
+    <button type="button" data-range="week">Week</button>
+    <button type="button" class="active" data-range="month">Month</button>
+    <button type="button" data-range="year">Year</button>
+  </div>
+  <div class="date-pill">
+    <i class="bi bi-calendar3"></i>
+    <span id="dash-date-label">Loading range</span>
+  </div>
+</div>
+
+<section class="kpi-grid" aria-label="Summary">
+  <article class="kpi kpi-dark">
+    <div class="kpi-label">Total incidents</div>
+    <div class="kpi-value" id="kpi-total-investigated">—</div>
+    <div class="kpi-foot" id="kpi-total-foot">Waiting for the API</div>
+  </article>
+  <article class="kpi">
+    <div class="kpi-label">Memory items</div>
+    <div class="kpi-value" id="kpi-memory-stored">—</div>
+    <div class="kpi-foot" id="kpi-memory-foot">Retained cases</div>
+  </article>
+  <article class="kpi">
+    <div class="kpi-label">Resolved</div>
+    <div class="kpi-value" id="kpi-resolved-incidents">—</div>
+    <div class="kpi-foot" id="kpi-resolved-foot">Closed investigations</div>
+  </article>
+  <article class="kpi">
+    <div class="kpi-label">Analyst satisfaction</div>
+    <div class="kpi-value" id="kpi-satisfaction-rate">—</div>
+    <div class="kpi-foot" id="kpi-satisfaction-foot">Feedback on recalled cases</div>
+  </article>
+</section>
+
+<section class="dash-split">
+  <article class="panel">
+    <div class="panel-head">
+      <h2>Memory growth</h2>
+      <a class="icon-link" href="{{ url_for('learning_analytics') }}" title="Open analytics" aria-label="Open analytics">
+        <i class="bi bi-arrow-up-right"></i>
+      </a>
+    </div>
+    <div class="bar-chart" id="chart-memory-growth" aria-label="Memory growth chart">
+      <div class="empty-note">Loading chart…</div>
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="cal-head">
+      <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
+      <strong id="cal-label">Calendar</strong>
+      <button type="button" class="cal-nav" id="cal-next" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
+    </div>
+    <div class="cal-grid" id="dash-calendar"></div>
+    <div class="recall-row">
+      <div>
+        <h3>Recall coverage</h3>
+        <p id="recall-caption">Share of incidents with a stored outcome</p>
+      </div>
+      <div class="ring" id="recall-ring" style="--pct: 0">
+        <span id="recall-ring-label">0%</span>
+      </div>
+    </div>
+  </article>
+</section>
+
+<article class="panel">
+  <div class="panel-head">
+    <h2>Recent investigations</h2>
+    <a class="icon-link" href="{{ url_for('incident_history') }}" title="Open archive" aria-label="Open archive">
+      <i class="bi bi-arrow-up-right"></i>
+    </a>
+  </div>
+  <div class="table-wrap">
+    <table class="table-soc" id="recent-investigations-table">
+      <thead>
+        <tr>
+          <th>Incident</th>
+          <th>Host</th>
+          <th>Incident ID</th>
+          <th>Severity</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="recent-investigations-body">
+        <tr>
+          <td colspan="5" class="empty-note">Loading investigations…</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</article>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
