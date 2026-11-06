@@ -1,0 +1,11 @@
+{
+  "incident_id": "ALERT-2026-DISTRACT",
+  "alert_type": "Office Printer Jam Warning",
+  "severity": "Low",
+  "affected_host": "PRINTER-FLOOR2-CORP",
+  "user_account": "LOCAL\\guest_print",
+  "timestamp": "2026-03-17T05:00:00Z",
+  "description": "Paper tray 2 is empty and paper jam reported in roller duplexer unit. Needs physical cartridge reseating.",
+  "raw_logs": "PrinterStatus: ERROR_OUT_OF_PAPER Tray: 2 Level: 0%"
+}
+

