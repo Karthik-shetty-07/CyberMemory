@@ -1,10 +1,12 @@
 import logging
 import os
 from flask import Flask, jsonify
+from backend import db
 from backend.routes.memory_routes import memory_bp
 
 
 def create_app():
+    db.init_db()
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024  # 1 MB request cap
     logging.basicConfig(level=logging.INFO)

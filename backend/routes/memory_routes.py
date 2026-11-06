@@ -1,5 +1,6 @@
 import re
 from flask import Blueprint, jsonify, request
+from backend import db
 from backend.services import hindsight_service as hs
 
 memory_bp = Blueprint("memory", __name__)
@@ -49,7 +50,11 @@ def retain():
     for f, v in d.items():
         if isinstance(v, str) and len(v) > MAX_TEXT:
             return _bad(f"{f} too long")
-    return _respond(hs.retain_incident(d, tenant=tenant))
+    db.save_incident(tenant, d, "pending")
+    result = hs.retain_incident(d, tenant=tenant)
+    db.set_hindsight_status(tenant, d["incident_id"], result["status"])
+    result["saved_locally"] = True
+    return _respond(result)
 
 
 @memory_bp.post("/recall")
@@ -78,3 +83,26 @@ def reflect():
     if len(q) > MAX_TEXT:
         return _bad("query too long")
     return _respond(hs.reflect_lessons(q, tenant=tenant))
+
+
+@memory_bp.get("/incidents")
+def incidents():
+    tenant = _tenant()
+    if not tenant:
+        return _bad("invalid X-Tenant-ID")
+    items = db.list_incidents(tenant, severity=request.args.get("severity"),
+                              q=request.args.get("q"))
+    return jsonify({"status": "ok", "count": len(items), "incidents": items})
+
+
+@memory_bp.get("/incidents/<incident_id>")
+def incident_detail(incident_id):
+    tenant = _tenant()
+    if not tenant:
+        return _bad("invalid X-Tenant-ID")
+    if not INCIDENT_RE.match(incident_id):
+        return _bad("invalid incident id")
+    inc = db.get_incident(tenant, incident_id)
+    if inc is None:
+        return jsonify({"status": "error", "error": "not found"}), 404
+    return jsonify({"status": "ok", "incident": inc})
