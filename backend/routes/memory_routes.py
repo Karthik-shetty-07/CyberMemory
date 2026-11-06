@@ -1,14 +1,18 @@
 
 import re
 from datetime import datetime
+
 from flask import Blueprint, jsonify, request
+
 from backend import db
 from backend.services import hindsight_service as hs
+
 
 memory_bp = Blueprint("memory", __name__)
 
 TENANT_RE = re.compile(r"^[a-z0-9-]{1,32}$")
 INCIDENT_RE = re.compile(r"^INC-\d+$")
+
 MAX_TEXT = 5000
 
 ALLOWED_STATES = {"valid", "invalidated"}
@@ -22,13 +26,21 @@ ALLOWED_TIME_FIELDS = {
 }
 
 
+# ---------------- HELPER FUNCTIONS ----------------
+
 def _tenant():
-    t = request.headers.get("X-Tenant-ID", "default").strip().lower()
-    return t if TENANT_RE.match(t) else None
+    tenant = request.headers.get(
+        "X-Tenant-ID", "default"
+    ).strip().lower()
+
+    return tenant if TENANT_RE.match(tenant) else None
 
 
 def _bad(msg):
-    return jsonify({"status": "error", "error": msg}), 400
+    return jsonify({
+        "status": "error",
+        "error": msg
+    }), 400
 
 
 def _respond(result):
@@ -37,8 +49,11 @@ def _respond(result):
     )
 
 
-def _str_list(v):
-    return isinstance(v, list) and all(isinstance(x, str) for x in v)
+def _str_list(value):
+    return (
+        isinstance(value, list)
+        and all(isinstance(item, str) for item in value)
+    )
 
 
 def _valid_iso_date(value):
@@ -46,11 +61,16 @@ def _valid_iso_date(value):
         return True
 
     try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        datetime.fromisoformat(
+            value.replace("Z", "+00:00")
+        )
         return True
+
     except (ValueError, AttributeError):
         return False
 
+
+# ---------------- HEALTH API ----------------
 
 @memory_bp.get("/health")
 def health():
@@ -83,31 +103,35 @@ def retain():
     if not tenant:
         return _bad("invalid X-Tenant-ID")
 
-    d = request.get_json(silent=True)
+    data = request.get_json(silent=True)
 
-    if not isinstance(d, dict):
+    if not isinstance(data, dict):
         return _bad("JSON body required")
 
-    if not INCIDENT_RE.match(str(d.get("incident_id", ""))):
+    if not INCIDENT_RE.match(
+        str(data.get("incident_id", ""))
+    ):
         return _bad("incident_id must look like INC-001")
 
-    if not str(d.get("description", "")).strip():
+    if not str(data.get("description", "")).strip():
         return _bad("description is required")
 
-    for f in ("iocs", "steps"):
-        if f in d and not _str_list(d[f]):
-            return _bad(f"{f} must be a list of strings")
+    for field in ("iocs", "steps"):
+        if field in data and not _str_list(data[field]):
+            return _bad(f"{field} must be a list of strings")
 
-    for f, v in d.items():
-        if isinstance(v, str) and len(v) > MAX_TEXT:
-            return _bad(f"{f} too long")
+    for field, value in data.items():
+        if isinstance(value, str) and len(value) > MAX_TEXT:
+            return _bad(f"{field} too long")
 
-    db.save_incident(tenant, d, "pending")
+    db.save_incident(tenant, data, "pending")
 
-    result = hs.retain_incident(d, tenant=tenant)
+    result = hs.retain_incident(data, tenant=tenant)
 
     db.set_hindsight_status(
-        tenant, d["incident_id"], result["status"]
+        tenant,
+        data["incident_id"],
+        result["status"]
     )
 
     result["saved_locally"] = True
@@ -124,20 +148,23 @@ def recall():
     if not tenant:
         return _bad("invalid X-Tenant-ID")
 
-    d = request.get_json(silent=True)
+    data = request.get_json(silent=True)
 
-    if not isinstance(d, dict):
+    if not isinstance(data, dict):
         return _bad("JSON body required")
 
-    q = str(d.get("query", "")).strip()
+    query = str(data.get("query", "")).strip()
 
-    if not q:
+    if not query:
         return _bad("query is required")
 
-    if len(q) > MAX_TEXT:
+    if len(query) > MAX_TEXT:
         return _bad("query too long")
 
-    result = hs.recall_similar(q, tenant=tenant)
+    result = hs.recall_similar(
+        query,
+        tenant=tenant
+    )
 
     db.record_retrieval(
         tenant,
@@ -156,22 +183,25 @@ def reflect():
     if not tenant:
         return _bad("invalid X-Tenant-ID")
 
-    d = request.get_json(silent=True)
+    data = request.get_json(silent=True)
 
-    if not isinstance(d, dict):
+    if not isinstance(data, dict):
         return _bad("JSON body required")
 
-    q = str(d.get("query", "")).strip()
+    query = str(data.get("query", "")).strip()
 
-    if not q:
+    if not query:
         return _bad("query is required")
 
-    if len(q) > MAX_TEXT:
+    if len(query) > MAX_TEXT:
         return _bad("query too long")
 
-    return _respond(
-        hs.reflect_lessons(q, tenant=tenant)
+    result = hs.reflect_lessons(
+        query,
+        tenant=tenant
     )
+
+    return _respond(result)
 
 
 # ---------------- INCIDENT HISTORY API ----------------
@@ -196,6 +226,8 @@ def incidents():
     })
 
 
+# ---------------- INCIDENT DETAILS API ----------------
+
 @memory_bp.get("/incidents/<incident_id>")
 def incident_detail(incident_id):
     tenant = _tenant()
@@ -206,9 +238,12 @@ def incident_detail(incident_id):
     if not INCIDENT_RE.match(incident_id):
         return _bad("invalid incident id")
 
-    inc = db.get_incident(tenant, incident_id)
+    incident = db.get_incident(
+        tenant,
+        incident_id
+    )
 
-    if inc is None:
+    if incident is None:
         return jsonify({
             "status": "error",
             "error": "not found"
@@ -216,7 +251,7 @@ def incident_detail(incident_id):
 
     return jsonify({
         "status": "ok",
-        "incident": inc
+        "incident": incident
     })
 
 
@@ -229,14 +264,17 @@ def feedback():
     if not tenant:
         return _bad("invalid X-Tenant-ID")
 
-    d = request.get_json(silent=True)
+    data = request.get_json(silent=True)
 
-    if not isinstance(d, dict):
+    if not isinstance(data, dict):
         return _bad("JSON body required")
 
-    incident_id = str(d.get("incident_id", "")).strip()
-    rating = d.get("rating")
-    comment = d.get("comment", "")
+    incident_id = str(
+        data.get("incident_id", "")
+    ).strip()
+
+    rating = data.get("rating")
+    comment = data.get("comment", "")
 
     if not INCIDENT_RE.match(incident_id):
         return _bad("invalid incident_id")
@@ -250,7 +288,10 @@ def feedback():
     if len(comment) > MAX_TEXT:
         return _bad("comment too long")
 
-    incident = db.get_incident(tenant, incident_id)
+    incident = db.get_incident(
+        tenant,
+        incident_id
+    )
 
     if incident is None:
         return jsonify({
@@ -282,17 +323,35 @@ def memory_explorer():
     if not tenant:
         return _bad("invalid X-Tenant-ID")
 
-    memory_type = request.args.get("type", "").strip() or None
-    search_query = request.args.get("q", "").strip() or None
-    state = request.args.get("state", "").strip() or None
+    memory_type = request.args.get(
+        "type", ""
+    ).strip() or None
 
-    time_field = request.args.get("time_field", "").strip() or None
-    start_date = request.args.get("start_date", "").strip() or None
-    end_date = request.args.get("end_date", "").strip() or None
+    search_query = request.args.get(
+        "q", ""
+    ).strip() or None
 
+    state = request.args.get(
+        "state", ""
+    ).strip() or None
+
+    time_field = request.args.get(
+        "time_field", ""
+    ).strip() or None
+
+    start_date = request.args.get(
+        "start_date", ""
+    ).strip() or None
+
+    end_date = request.args.get(
+        "end_date", ""
+    ).strip() or None
+
+    # Pagination validation
     try:
         limit = int(request.args.get("limit", 20))
         offset = int(request.args.get("offset", 0))
+
     except (TypeError, ValueError):
         return _bad("limit and offset must be integers")
 
@@ -302,42 +361,64 @@ def memory_explorer():
     if offset < 0:
         return _bad("offset cannot be negative")
 
+    # Memory type validation
     if memory_type and len(memory_type) > 100:
         return _bad("memory type too long")
 
+    # Search validation
     if search_query and len(search_query) > MAX_TEXT:
         return _bad("search query too long")
 
+    # State validation
     if state and state not in ALLOWED_STATES:
         return _bad("state must be valid or invalidated")
 
+    # Time field validation
     if time_field and time_field not in ALLOWED_TIME_FIELDS:
         return _bad("invalid time_field")
 
+    # Date filters require a time field
     if (start_date or end_date) and not time_field:
-        return _bad("time_field is required when using date filters")
+        return _bad(
+            "time_field is required when using date filters"
+        )
 
+    # ISO date validation
     if start_date and not _valid_iso_date(start_date):
         return _bad("invalid start_date")
 
     if end_date and not _valid_iso_date(end_date):
         return _bad("invalid end_date")
 
+    # Date range validation
     if start_date and end_date:
         try:
             start = datetime.fromisoformat(
                 start_date.replace("Z", "+00:00")
             )
+
             end = datetime.fromisoformat(
                 end_date.replace("Z", "+00:00")
             )
 
+            # Prevent comparing timezone-aware and naive dates
+            if (start.tzinfo is None) != (end.tzinfo is None):
+                return _bad(
+                    "start_date and end_date must both include "
+                    "a timezone or both omit it"
+                )
+
             if start >= end:
-                return _bad("start_date must be earlier than end_date")
+                return _bad(
+                    "start_date must be earlier than end_date"
+                )
 
-        except ValueError:
-            return _bad("start_date and end_date must use compatible timezones")
+        except (ValueError, TypeError):
+            return _bad(
+                "start_date and end_date must use valid, compatible dates"
+            )
 
+    # Retrieve memories from Hindsight
     result = hs.list_memory_units(
         tenant=tenant,
         memory_type=memory_type,
