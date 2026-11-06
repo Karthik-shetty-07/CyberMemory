@@ -105,3 +105,81 @@ def reflect_lessons(query, tenant="default"):
         out = _unavailable(e)
         out["text"] = ""
         return out
+
+def list_memory_units(
+    tenant="default",
+    memory_type=None,
+    search_query=None,
+    limit=20,
+    offset=0
+):
+    bank = bank_id_for(tenant)
+
+    try:
+        with _client() as c:
+            res = c.list_memories(
+                bank_id=bank,
+                type=memory_type,
+                search_query=search_query,
+                limit=limit,
+                offset=offset
+            )
+
+        memories = []
+
+        for item in res.items:
+            document_id = getattr(item, "document_id", None)
+            text = getattr(item, "text", "") or ""
+
+            incident_ids = []
+
+            if document_id and INCIDENT_ID_RE.fullmatch(document_id):
+                incident_ids.append(document_id)
+
+            incident_ids.extend(
+                incident_id
+                for incident_id in INCIDENT_ID_RE.findall(text)
+                if incident_id not in incident_ids
+            )
+
+            memories.append({
+                "id": item.id,
+                "text": text,
+                "context": getattr(item, "context", None),
+                "type": getattr(item, "fact_type", None),
+                "document_id": document_id,
+                "incident_ids": incident_ids,
+                "entities": getattr(item, "entities", None),
+                "tags": getattr(item, "tags", None) or [],
+                "date": getattr(item, "var_date", None),
+                "state": getattr(item, "state", None),
+                "proof_count": getattr(item, "proof_count", None),
+                "updated_at": getattr(item, "updated_at", None)
+            })
+
+        return {
+            "status": "ok" if memories else "empty",
+            "memories": memories,
+            "total": res.total,
+            "limit": res.limit,
+            "offset": res.offset
+        }
+
+    except Exception as e:
+        if _is_missing_bank(e):
+            return {
+                "status": "empty",
+                "memories": [],
+                "total": 0,
+                "limit": limit,
+                "offset": offset
+            }
+
+        out = _unavailable(e)
+        out.update({
+            "memories": [],
+            "total": 0,
+            "limit": limit,
+            "offset": offset
+        })
+        return out

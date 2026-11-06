@@ -251,3 +251,43 @@ def feedback():
         "incident_id": incident_id,
         "rating": rating
     }), 201
+
+# ---------------- MEMORY EXPLORER API ----------------
+
+@memory_bp.get("/explorer")
+def memory_explorer():
+    tenant = _tenant()
+
+    if not tenant:
+        return _bad("invalid X-Tenant-ID")
+
+    memory_type = request.args.get("type", "").strip() or None
+    search_query = request.args.get("q", "").strip() or None
+
+    try:
+        limit = int(request.args.get("limit", 20))
+        offset = int(request.args.get("offset", 0))
+    except (TypeError, ValueError):
+        return _bad("limit and offset must be integers")
+
+    if limit < 1 or limit > 100:
+        return _bad("limit must be between 1 and 100")
+
+    if offset < 0:
+        return _bad("offset cannot be negative")
+
+    if memory_type and len(memory_type) > 100:
+        return _bad("memory type too long")
+
+    if search_query and len(search_query) > MAX_TEXT:
+        return _bad("search query too long")
+
+    result = hs.list_memory_units(
+        tenant=tenant,
+        memory_type=memory_type,
+        search_query=search_query,
+        limit=limit,
+        offset=offset
+    )
+
+    return _respond(result)
