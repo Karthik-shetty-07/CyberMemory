@@ -69,7 +69,7 @@
       <div class="p-3 rounded mb-2" style="background: rgba(11, 18, 32, 0.7); border: 1px solid var(--border-color);">
         <div class="d-flex justify-content-between align-items-center mb-1">
           <span class="soc-label mb-0">Severity & Confidence Assessment</span>
-          <span class="similarity-badge">Confidence: {{ (incident.confidence_score * 100) | round(0) if incident.confidence_score else 88 }}%</span>
+          <span class="similarity-badge">Confidence: {{ ((incident.confidence_score * 100) | round(0) | int ~ '%') if incident.confidence_score is number else 'not scored' }}</span>
         </div>
         <p class="text-muted-custom mb-0 small">
           {{ incident.confidence_explanation or 'Evaluated based on suspicious process parentage, command line arguments, and correlated historical patterns.' }}
@@ -297,7 +297,7 @@
             <a href="/investigation/{{ match.incident_id }}" class="font-mono fw-bold text-cyan text-decoration-none">
               <i class="bi bi-box-arrow-up-right me-1"></i>{{ match.incident_id }}
             </a>
-            <span class="similarity-badge">Match: {{ (match.similarity_score * 100) | round(0) }}%</span>
+            <span class="similarity-badge">Match: {{ ((match.similarity_score * 100) | round(0) | int ~ '%') if match.similarity_score is number else 'n/a' }}</span>
           </div>
           <p class="text-white small mb-2">{{ match.relevance_explanation }}</p>
           <div class="mb-2" style="font-size: 0.75rem;">
