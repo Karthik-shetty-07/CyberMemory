@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}SOC Dashboard{% endblock %}
+{% block page_icon %}<i class="bi bi-grid-1x2-fill"></i>{% endblock %}
+{% block page_title %}Security Operations Dashboard{% endblock %}
+
+{% block content %}
+<!-- Top Hindsight Memory System Status Banner -->
+<div class="soc-alert soc-alert-info d-flex justify-content-between align-items-center mb-4">
+  <div class="d-flex align-items-center gap-2">
+    <i class="bi bi-shield-check text-cyan fs-5"></i>
+    <div>
+      <span class="fw-bold text-white">CyberMemory AI Active:</span>
+      <span class="text-muted-custom"> Persistent Hindsight memory is actively assisting SOC triage. Historical patterns from resolved incidents are retrieved in real-time.</span>
+    </div>
+  </div>
+  <a href="{{ url_for('investigate') }}" class="btn-soc-primary">
+    <i class="bi bi-plus-circle"></i> New Investigation
+  </a>
+</div>
+
+<!-- Key Performance Metrics (KPI Cards) -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-info">
+        <span class="stat-label">Total Investigated</span>
+        <span class="stat-value" id="kpi-total-investigated">--</span>
+        <span class="stat-subtext text-cyan"><i class="bi bi-arrow-up-right"></i> Live telemetry active</span>
+      </div>
+      <div class="stat-icon">
+        <i class="bi bi-activity"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-info">
+        <span class="stat-label">Hindsight Memory Nodes</span>
+        <span class="stat-value" id="kpi-memory-stored">--</span>
+        <span class="stat-subtext text-blue"><i class="bi bi-database-check"></i> Persistent across restarts</span>
+      </div>
+      <div class="stat-icon">
+        <i class="bi bi-diagram-3-fill"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-info">
+        <span class="stat-label">Successfully Resolved</span>
+        <span class="stat-value text-success" id="kpi-resolved-incidents">--</span>
+        <span class="stat-subtext" style="color: #86EFAC;"><i class="bi bi-check2-circle"></i> Confirmed remediated</span>
+      </div>
+      <div class="stat-icon" style="color: #10B981; border-color: rgba(16, 185, 129, 0.3);">
+        <i class="bi bi-shield-fill-check"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-info">
+        <span class="stat-label">Analyst Satisfaction</span>
+        <span class="stat-value text-cyan" id="kpi-satisfaction-rate">--%</span>
+        <span class="stat-subtext text-muted-custom"><i class="bi bi-hand-thumbs-up-fill"></i> Recommendation feedback</span>
+      </div>
+      <div class="stat-icon">
+        <i class="bi bi-star-fill text-warning"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row: Severity Distribution & Memory Growth -->
+<div class="row g-4 mb-4">
+  <div class="col-12 col-lg-5">
+    <div class="soc-card h-100">
+      <div class="soc-card-header">
+        <h2 class="soc-card-title">
+          <i class="bi bi-pie-chart-fill"></i> Severity Distribution
+        </h2>
+        <span class="badge" style="background: rgba(56, 189, 248, 0.1); border: 1px solid var(--border-color); color: var(--accent-blue); font-size: 0.72rem;">Current Queue</span>
+      </div>
+      <div id="chart-severity" style="height: 280px; width: 100%;">
+        <div class="d-flex align-items-center justify-content-center h-100 text-muted-custom">Loading chart...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-7">
+    <div class="soc-card h-100">
+      <div class="soc-card-header">
+        <h2 class="soc-card-title">
+          <i class="bi bi-graph-up"></i> Memory Bank Growth & Retrievals
+        </h2>
+        <span class="badge" style="background: rgba(0, 242, 254, 0.1); border: 1px solid rgba(0, 242, 254, 0.3); color: var(--accent-cyan); font-size: 0.72rem;">Hindsight Telemetry</span>
+      </div>
+      <div id="chart-memory-growth" style="height: 280px; width: 100%;">
+        <div class="d-flex align-items-center justify-content-center h-100 text-muted-custom">Loading chart...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Investigations Table -->
+<div class="soc-card">
+  <div class="soc-card-header">
+    <h2 class="soc-card-title">
+      <i class="bi bi-list-task"></i> Recent SOC Investigations
+    </h2>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('incident_history') }}" class="btn-soc-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.78rem;">
+        View All History <i class="bi bi-chevron-right"></i>
+      </a>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table-soc" id="recent-investigations-table">
+      <thead>
+        <tr>
+          <th>Incident ID</th>
+          <th>Severity</th>
+          <th>Alert Title</th>
+          <th>Affected Host</th>
+          <th>Alert Type</th>
+          <th>Status</th>
+          <th>Timestamp</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="recent-investigations-body">
+        <tr>
+          <td colspan="8" class="text-center text-muted-custom py-4">
+            <span class="spinner-border spinner-border-sm text-cyan me-2"></span> Loading active investigations...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
