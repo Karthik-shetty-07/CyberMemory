@@ -51,15 +51,21 @@ def create_app(test_config: Optional[Dict[str, Any]] = None):
 
     @app.errorhandler(Exception)
     def handle_exception(e):
-        logger.exception(f"Unhandled API error: {e}")
-        # Redact any sensitive internal tokens before returning error
-        safe_msg = SecretRedactor.redact_text(str(e))
+        from werkzeug.exceptions import HTTPException
+        if isinstance(e, HTTPException):
+            code, etype = e.code or 500, type(e).__name__
+            msg = e.description
+        elif isinstance(e, ValueError):
+            code, etype, msg = 400, "ValidationError", str(e)
+        else:
+            logger.exception(f"Unhandled API error: {e}")
+            code, etype, msg = 500, type(e).__name__, str(e)
         return jsonify({
             "status": "error",
-            "error_type": type(e).__name__,
-            "message": safe_msg,
+            "error_type": etype,
+            "message": SecretRedactor.redact_text(str(msg)),
             "operational_mode": "READ_ONLY_ANALYSIS"
-        }), 500
+        }), code
 
     @app.route("/api/health", methods=["GET"])
     def health_check():
@@ -103,15 +109,15 @@ def create_app(test_config: Optional[Dict[str, Any]] = None):
         memory_payload = {
             "incident_id": data["incident_id"],
             "alert_type": data.get("alert_type", "Investigated Incident"),
-            "description": data.get("description", "Analyst feedback recorded"),
-            "root_cause": data.get("actual_root_cause", "Confirmed by analyst"),
-            "remediation": data.get("actual_remediation", "Executed remediation"),
+            "description": data.get("description", "Not provided"),
+            "root_cause": data.get("actual_root_cause", "Not provided by analyst"),
+            "remediation": data.get("actual_remediation", "Not provided by analyst"),
             "final_outcome": data["actual_outcome"],
             "analyst_feedback": {
                 "rating": data["rating"],
                 "comments": data.get("comments", "")
             },
-            "lessons_learned": data.get("lessons_learned", "Analyst confirmed resolution procedure.")
+            "lessons_learned": data.get("lessons_learned", "Not provided by analyst")
         }
 
         retain_result = memory_service.retain_incident(memory_payload, bank_id=bank_id)
