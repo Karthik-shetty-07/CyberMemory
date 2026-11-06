@@ -352,8 +352,8 @@ elif nav_choice == "New Investigation":
                     "incident_id": rep.incident_id,
                     "alert_type": default_type,
                     "description": rep.incident_summary,
-                    "root_cause": rep.potential_root_causes[0] if rep.potential_root_causes else "Confirmed by analyst",
-                    "remediation": rep.recommended_containment[0] if rep.recommended_containment else "Host isolated",
+                    "root_cause": rep.potential_root_causes[0] if rep.potential_root_causes else "Not provided by analyst",
+                    "remediation": rep.recommended_containment[0] if rep.recommended_containment else "Not provided by analyst",
                     "final_outcome": outcome,
                     "analyst_feedback": {"rating": rating, "comments": notes},
                     "lessons_learned": f"Analyst verified: {notes}"

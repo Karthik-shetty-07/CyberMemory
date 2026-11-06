@@ -86,6 +86,18 @@ def create_app(test_config: Optional[Dict[str, Any]] = None):
             "data": report.to_dict()
         })
 
+    @app.route("/api/reflect", methods=["POST"])
+    def reflect():
+        data = request.get_json(silent=True) or {}
+        query = data.get("query")
+        if not isinstance(query, str) or not query.strip():
+            return jsonify({"status": "error", "message": "'query' must be a non-empty string"}), 400
+        if len(query) > 2000:
+            return jsonify({"status": "error", "message": "'query' is too long (max 2000 chars)"}), 400
+        bank_id = request.args.get("bank_id", memory_service.default_bank_id)
+        result = memory_service.reflect_on_incidents(query.strip(), bank_id=bank_id)
+        return jsonify({"status": "success", "data": result})
+
     @app.route("/api/feedback", methods=["POST"])
     def record_feedback():
         data = request.get_json(silent=True)

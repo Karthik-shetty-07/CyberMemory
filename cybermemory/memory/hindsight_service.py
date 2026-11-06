@@ -5,6 +5,7 @@ multi-tenant memory bank separation, error resilience, and graceful fallback.
 """
 
 import os
+import re
 import json
 from typing import List, Dict, Any, Optional
 from cybermemory.models import HistoricalMatch
@@ -43,13 +44,15 @@ class HindsightMemoryService:
 
         try:
             from hindsight_client import Hindsight  # type: ignore
-            # Initialize with API key or base URL
             if self.api_key:
-                self._client = Hindsight(api_key=self.api_key, base_url=self.base_url)
+                client = Hindsight(api_key=self.api_key, base_url=self.base_url)
             else:
-                self._client = Hindsight(base_url=self.base_url)
+                client = Hindsight(base_url=self.base_url)
+            # Real connectivity check: only report live after the server answers.
+            client.get_version()
+            self._client = client
             self._is_live_connected = True
-        except (ImportError, Exception):
+        except Exception:
             # Graceful fallback to mock service
             self._is_live_connected = False
             self._client = None
@@ -116,11 +119,18 @@ class HindsightMemoryService:
 
         if self.is_live:
             try:
-                res = self._client.retain(bank_id=target_bank, content=content)
+                live_meta = {k: (v if isinstance(v, str) else json.dumps(v)) for k, v in metadata.items()}
+                res = self._client.retain(
+                    bank_id=target_bank, content=content, context="security incident report",
+                    document_id=inc_id, metadata=live_meta,
+                )
+                # Keep the structured copy locally too, so recall can rebuild full matches.
+                self._mock.retain(bank_id=target_bank, content=content, metadata=metadata)
                 return {"status": "success", "mode": "live_hindsight", "result": str(res)}
-            except Exception as e:
-                # Log and fallback to mock retention
-                return self._mock.retain(bank_id=target_bank, content=content, metadata=metadata)
+            except Exception:
+                res = self._mock.retain(bank_id=target_bank, content=content, metadata=metadata)
+                res["mode"] = "local_hindsight_mock_fallback"
+                return res
         else:
             res = self._mock.retain(bank_id=target_bank, content=content, metadata=metadata)
             res["mode"] = "local_hindsight_mock"
@@ -143,17 +153,23 @@ class HindsightMemoryService:
         raw_memories = []
         if self.is_live:
             try:
-                live_results = self._client.recall(bank_id=target_bank, query=query)
-                for mem in live_results[:top_k]:
-                    # Extract score and content
-                    score = getattr(mem, "score", 0.75)
-                    content = getattr(mem, "content", str(mem))
+                response = self._client.recall(bank_id=target_bank, query=query)
+                results = list(getattr(response, "results", None) or [])[:top_k]
+                n = len(results)
+                for rank, mem in enumerate(results):
+                    text = getattr(mem, "text", "") or ""
+                    # The SDK returns results ranked, without a score; derive one from rank.
+                    score = getattr(mem, "score", None)
+                    if score is None:
+                        score = round(1.0 - rank / max(n, 1) * 0.5, 3)
+                    m = re.search(r"Incident ID:\s*(INC-\d{4}-\d{4})", text)
+                    local = self._mock.find_by_incident(target_bank, m.group(1)) if m and hasattr(self._mock, "find_by_incident") else None
                     raw_memories.append(MockMemoryItem(
-                        memory_id="live_mem",
+                        memory_id=getattr(mem, "id", "live_mem") or "live_mem",
                         bank_id=target_bank,
-                        content=content,
-                        metadata={},
-                        score=score
+                        content=text,
+                        metadata=local.metadata if local else {},
+                        score=score,
                     ))
             except Exception:
                 # If live recall fails, run without pretending or fallback to mock
@@ -167,7 +183,6 @@ class HindsightMemoryService:
             inc_id = meta.get("incident_id")
             if not inc_id:
                 # Parse incident_id from text if metadata empty
-                import re
                 m = re.search(r"Incident ID:\s*(INC-\d{4}-\d{4})", mem.content)
                 inc_id = m.group(1) if m else "HIST-REF"
 
@@ -215,7 +230,7 @@ class HindsightMemoryService:
         if self.is_live:
             try:
                 resp = self._client.reflect(bank_id=target_bank, query=query)
-                answer = getattr(resp, "answer", str(resp))
+                answer = getattr(resp, "text", None) or str(resp)
                 return {"mode": "live_hindsight", "synthesis": answer}
             except Exception:
                 resp = self._mock.reflect(bank_id=target_bank, query=query)
@@ -226,9 +241,20 @@ class HindsightMemoryService:
 
     def count_memories(self, bank_id: Optional[str] = None) -> int:
         target_bank = bank_id or self.default_bank_id
+        if self.is_live:
+            try:
+                res = self._client.list_memories(bank_id=target_bank, limit=1, offset=0)
+                return int(getattr(res, "total", 0) or 0)
+            except Exception:
+                pass
         return self._mock.get_bank_count(target_bank)
 
     def clear_bank(self, bank_id: Optional[str] = None) -> None:
         target_bank = bank_id or self.default_bank_id
+        if self.is_live:
+            try:
+                self._client.delete_bank(bank_id=target_bank)
+            except Exception:
+                pass
         self._mock.clear(target_bank)
 

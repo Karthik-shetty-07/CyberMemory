@@ -259,8 +259,8 @@ class IncidentInvestigator:
                 "Block any extracted IP addresses and external domains at edge firewalls."
             ]
             limitations = (
-                "Confidence is moderate (65%). In the absence of historical incident memory, "
-                "this plan relies on general threat response heuristics. "
+                "Confidence: not scored. No historical incident memory matched this alert, "
+                "so this plan relies only on general threat response heuristics. "
                 "Investigator must manually correlate with other assets on subnet."
             )
         else:
@@ -316,8 +316,11 @@ class IncidentInvestigator:
                 f"Sweep all adjacent workstations in subnet {host.split('.')[0]} for related indicators."
             ]
 
+            top_score = max(0.0, min(1.0, float(top_match.similarity_score or 0.0)))
+            level = "high" if top_score >= 0.75 else "moderate" if top_score >= 0.45 else "low"
             limitations = (
-                f"Confidence is high (92%). Grounded by Hindsight memory retrieval of {top_match.incident_id}. "
+                f"Confidence is {level}: closest historical match {top_match.incident_id} has "
+                f"similarity {top_score:.0%} across {len(historical_matches)} retrieved incident(s). "
                 f"Analyst must confirm whether host {host} exhibits secondary persistence mechanisms before un-quarantine."
             )
 

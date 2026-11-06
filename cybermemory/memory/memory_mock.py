@@ -157,6 +157,13 @@ class HindsightMemoryMock:
 
         return MockReflectionResponse(answer=synthesis, sources=relevant)
 
+    def find_by_incident(self, bank_id: str, incident_id: str) -> Optional["MockMemoryItem"]:
+        """Return the most recent memory whose metadata records this incident id."""
+        for item in reversed(self._banks.get(bank_id, [])):
+            if item.metadata.get("incident_id") == incident_id:
+                return item
+        return None
+
     def get_bank_count(self, bank_id: str) -> int:
         return len(self._banks.get(bank_id, []))
 
