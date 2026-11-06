@@ -20,6 +20,40 @@ The dashboard includes:
 
 The dashboard can run in standalone mode with its bundled demo data. The investigation API is a separate service with its own API contract; see `docs/API_CONTRACT.md` for the dashboard contract and `docs/API_SPECIFICATION.md` for the backend API.
 
+## Architecture
+
+```
+Browser ──> app.py (SOC dashboard, Flask :5000)
+              │  memory calls go through try_backend_proxy()
+              ├─ BACKEND_API_URL set   → HTTP to a separate backend service
+              └─ BACKEND_API_URL unset → bundled backend/ app, called in-process
+                                          (seeded from static/data/synthetic_incidents.json)
+backend/ (memory API: /api/memory/retain|recall|reflect|feedback|stats|explorer)
+  ├─ SQLite (incidents, feedback, stats)   CM_DB_PATH
+  └─ services/hindsight_service.py
+        ├─ live Hindsight  when hindsight-client is installed AND HINDSIGHT_URL is set
+        └─ local bank      otherwise: JSON files in backend/data/local_banks/ (mode="local")
+
+cybermemory/ (investigation engine + API, :5001)
+  agent/investigator.py  IncidentInvestigator — the single authoritative pipeline:
+                         sanitize → extract IOCs → recall memory → Groq LLM or
+                         deterministic fallback → report
+  memory/hindsight_service.py  live SDK (recall .results[].text, reflect .text)
+                               with local mock fallback
+  api/app.py             /api/health, /api/investigate, /api/reflect, /api/feedback, ...
+```
+
+**Memory bank modes.** Every memory response reports its mode. Live Hindsight is used only after a real
+connectivity check (`get_version()`); otherwise the local bank is used and labelled as such. The local
+bank uses keyword overlap, not semantic search, and its reflect output is a keyword-matched summary,
+not an LLM synthesis.
+
+**Confidence.** Deterministic-fallback confidence is derived from the top historical match's
+similarity score. With no matches it is reported as "not scored".
+
+**Analyst feedback.** Fields the analyst did not provide are stored as "Not provided by analyst";
+nothing is fabricated.
+
 ## Local setup
 
 Requires Python 3.10 or newer.
@@ -32,6 +66,9 @@ python -m venv .venv
 # source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
+
+The dashboard alone runs the whole stack: `python app.py`. No Hindsight server is required (the local bank is used).
+To use live Hindsight, set `HINDSIGHT_URL` (and `HINDSIGHT_API_KEY` if needed) and install `hindsight-client`.
 
 Copy `.env.example` to `.env` and set credentials for any external services you use. Start the dashboard and API in separate terminals:
 
@@ -57,22 +94,20 @@ The dashboard is available on port 5000, the API on port 5001, and Hindsight on 
 
 ## Tests
 
-Run the frontend integration tests and backend test suite with:
+All suites use the standard library (no pytest required):
 
 ```bash
-python -m pytest tests/ -v
+python -m unittest discover -s tests -t . -v
+python -m unittest discover -s backend/tests -t . -v
 ```
 
-The backend tests can also be run with the standard library:
-
-```bash
-python -m unittest discover -s tests -p "test_*.py" -v
-```
+`backend/tests/smoke_service.py`, `probe_hindsight.py` and `smoke_hindsight.py` are manual scripts against a live Hindsight server.
 
 ## Backend API
 
 - `GET /api/health` — service and operational-mode status.
 - `POST /api/investigate` — analyze a security alert.
+- `POST /api/reflect` — `{"query": "..."}` → synthesis of lessons across stored incidents.
 - `POST /api/feedback` — record analyst feedback and incident outcome.
 - `GET /api/incidents` and `GET /api/incidents/<id>` — query incident records.
 - `POST /api/memory/seed` — seed the memory bank with sample incidents.
