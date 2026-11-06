@@ -191,3 +191,20 @@ function updateProgressStep(stepNum, percent, title, desc) {
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const presetKey = urlParams.get('preset');
+  if (presetKey && PRESETS[presetKey]) {
+    loadPreset(presetKey);
+  }
+
+  const quickLogs = sessionStorage.getItem('pending_quick_logs');
+  if (quickLogs) {
+    const logsArea = document.getElementById('security-logs');
+    const titleArea = document.getElementById('incident-title');
+    if (logsArea) logsArea.value = quickLogs;
+    if (titleArea && !titleArea.value) titleArea.value = 'Ad-Hoc Triage: ' + quickLogs.slice(0, 40).replace(/\n/g, ' ') + '...';
+    sessionStorage.removeItem('pending_quick_logs');
+  }
+});

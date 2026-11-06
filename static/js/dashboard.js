@@ -58,7 +58,7 @@ function renderSeverityChart(severity) {
     hole: 0.65,
     marker: {
       colors: colors,
-      line: { color: '#070B14', width: 2 }
+      line: { color: 'rgba(18, 14, 32, 0.9)', width: 2 }
     },
     textinfo: 'value+percent',
     hoverinfo: 'label+value+percent',
@@ -104,9 +104,9 @@ function renderMemoryGrowthChart(growthData) {
     type: 'scatter',
     mode: 'lines+markers',
     fill: 'tozeroy',
-    fillcolor: 'rgba(0, 242, 254, 0.08)',
-    line: { color: '#00F2FE', width: 2.5, shape: 'spline' },
-    marker: { size: 6, color: '#00F2FE' }
+    fillcolor: 'rgba(168, 85, 247, 0.12)',
+    line: { color: '#A855F7', width: 2.8, shape: 'spline' },
+    marker: { size: 6, color: '#A855F7' }
   };
 
   const traceRetrievals = {
@@ -115,8 +115,8 @@ function renderMemoryGrowthChart(growthData) {
     name: 'Investigation Retrievals',
     type: 'scatter',
     mode: 'lines+markers',
-    line: { color: '#38BDF8', width: 2, dash: 'dot', shape: 'spline' },
-    marker: { size: 5, color: '#38BDF8' }
+    line: { color: '#06B6D4', width: 2, dash: 'dot', shape: 'spline' },
+    marker: { size: 5, color: '#06B6D4' }
   };
 
   const layout = {

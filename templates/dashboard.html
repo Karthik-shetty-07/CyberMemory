@@ -1,75 +1,134 @@
 {% extends "base.html" %}
 
-{% block title %}SOC Dashboard{% endblock %}
-{% block page_icon %}<i class="bi bi-grid-1x2-fill"></i>{% endblock %}
-{% block page_title %}Security Operations Dashboard{% endblock %}
+{% block title %}SOC Command Center{% endblock %}
 
 {% block content %}
-<!-- Top Hindsight Memory System Status Banner -->
-<div class="soc-alert soc-alert-info d-flex justify-content-between align-items-center mb-4">
-  <div class="d-flex align-items-center gap-2">
-    <i class="bi bi-shield-check text-cyan fs-5"></i>
-    <div>
-      <span class="fw-bold text-white">CyberMemory AI Active:</span>
-      <span class="text-muted-custom"> Persistent Hindsight memory is actively assisting SOC triage. Historical patterns from resolved incidents are retrieved in real-time.</span>
+<!-- Centerpiece: "What can I help with today?" Glass Command Box -->
+<section class="hero-prompt-section">
+  <h1 class="hero-headline">What security alert are we investigating today?</h1>
+
+  <!-- Glass Command Box -->
+  <div class="glass-command-box">
+    <textarea id="quick-triage-input" class="glass-command-textarea" placeholder="Paste suspicious PowerShell, file hash, IP address, or alert description..." onkeydown="handleQuickTriageEnter(event)"></textarea>
+
+    <div class="glass-command-footer">
+      <div class="d-flex align-items-center gap-1">
+        <label for="quick-upload" class="command-tool-btn mb-0" title="Attach Security Log / Artifact">
+          <i class="bi bi-paperclip"></i>
+        </label>
+        <input type="file" id="quick-upload" style="display: none;" onchange="handleQuickUpload(event)">
+        <span class="text-dim small ms-1" style="font-size: 0.72rem;">Attach .log, .json, or .evtx</span>
+      </div>
+
+      <button type="button" class="command-send-pill" onclick="triggerQuickInvestigation()" title="Launch AI SOC Investigation">
+        <i class="bi bi-arrow-up"></i>
+      </button>
     </div>
   </div>
-  <a href="{{ url_for('investigate') }}" class="btn-soc-primary">
-    <i class="bi bi-plus-circle"></i> New Investigation
-  </a>
-</div>
 
-<!-- Key Performance Metrics (KPI Cards) -->
+  <!-- Quick Action Pills below Command Box -->
+  <div class="quick-action-pills">
+    <a href="/investigate?preset=powershell-recall" class="quick-pill">
+      <i class="bi bi-terminal-fill text-danger"></i>
+      <span>Suspicious PowerShell</span>
+    </a>
+    <a href="/investigate?preset=ransomware-canary" class="quick-pill">
+      <i class="bi bi-lock-fill text-danger"></i>
+      <span>Ransomware Behavior</span>
+    </a>
+    <a href="/investigate?preset=aitm-phish" class="quick-pill">
+      <i class="bi bi-geo-alt-fill text-warning"></i>
+      <span>Impossible Travel</span>
+    </a>
+    <a href="/investigate?preset=s3-exfil" class="quick-pill">
+      <i class="bi bi-cloud-arrow-up-fill text-cyan"></i>
+      <span>Data Exfiltration</span>
+    </a>
+    <a href="/memory" class="quick-pill">
+      <i class="bi bi-diagram-3-fill text-purple"></i>
+      <span>Query Memory Bank</span>
+    </a>
+  </div>
+
+  <!-- 4-Card Glass Deck (Matching reference screenshot lower deck) -->
+  <div class="glass-deck-grid">
+    <a href="/investigate" class="glass-deck-card">
+      <div class="deck-card-top">
+        <span class="deck-card-title">Triage Incident</span>
+        <span class="deck-card-sub">Extract IOCs & ATT&CK techniques</span>
+      </div>
+      <i class="bi bi-cpu deck-card-icon"></i>
+    </a>
+
+    <a href="/memory" class="glass-deck-card">
+      <div class="deck-card-top">
+        <span class="deck-card-title">Hindsight Recall</span>
+        <span class="deck-card-sub">Semantic vector memory search</span>
+      </div>
+      <i class="bi bi-diagram-3 deck-card-icon"></i>
+    </a>
+
+    <a href="/history" class="glass-deck-card">
+      <div class="deck-card-top">
+        <span class="deck-card-title">Forensic Archive</span>
+        <span class="deck-card-sub">20+ historical verified cases</span>
+      </div>
+      <i class="bi bi-archive deck-card-icon"></i>
+    </a>
+
+    <a href="/analytics" class="glass-deck-card">
+      <div class="deck-card-top">
+        <span class="deck-card-title">Agent Learning</span>
+        <span class="deck-card-sub">-81.3% MTTR reduction trend</span>
+      </div>
+      <i class="bi bi-graph-up deck-card-icon"></i>
+    </a>
+  </div>
+</section>
+
+<!-- KPI Metrics Grid -->
 <div class="row g-3 mb-4">
   <div class="col-12 col-sm-6 col-xl-3">
-    <div class="stat-card">
-      <div class="stat-info">
-        <span class="stat-label">Total Investigated</span>
-        <span class="stat-value" id="kpi-total-investigated">--</span>
-        <span class="stat-subtext text-cyan"><i class="bi bi-arrow-up-right"></i> Live telemetry active</span>
+    <div class="soc-card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="soc-label mb-0">Total Incidents</span>
+        <i class="bi bi-activity text-cyan"></i>
       </div>
-      <div class="stat-icon">
-        <i class="bi bi-activity"></i>
-      </div>
+      <div class="h3 text-white fw-bold mb-0" id="kpi-total-investigated">--</div>
+      <div class="text-dim small mt-1">Live telemetry streaming</div>
     </div>
   </div>
 
   <div class="col-12 col-sm-6 col-xl-3">
-    <div class="stat-card">
-      <div class="stat-info">
-        <span class="stat-label">Hindsight Memory Nodes</span>
-        <span class="stat-value" id="kpi-memory-stored">--</span>
-        <span class="stat-subtext text-blue"><i class="bi bi-database-check"></i> Persistent across restarts</span>
+    <div class="soc-card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="soc-label mb-0">Hindsight Memory</span>
+        <i class="bi bi-database-check text-purple"></i>
       </div>
-      <div class="stat-icon">
-        <i class="bi bi-diagram-3-fill"></i>
-      </div>
+      <div class="h3 text-white fw-bold mb-0" id="kpi-memory-stored">--</div>
+      <div class="text-dim small mt-1">Persistent across sessions</div>
     </div>
   </div>
 
   <div class="col-12 col-sm-6 col-xl-3">
-    <div class="stat-card">
-      <div class="stat-info">
-        <span class="stat-label">Successfully Resolved</span>
-        <span class="stat-value text-success" id="kpi-resolved-incidents">--</span>
-        <span class="stat-subtext" style="color: #86EFAC;"><i class="bi bi-check2-circle"></i> Confirmed remediated</span>
+    <div class="soc-card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="soc-label mb-0">Resolved Malicious</span>
+        <i class="bi bi-shield-check text-success"></i>
       </div>
-      <div class="stat-icon" style="color: #10B981; border-color: rgba(16, 185, 129, 0.3);">
-        <i class="bi bi-shield-fill-check"></i>
-      </div>
+      <div class="h3 text-success fw-bold mb-0" id="kpi-resolved-incidents">--</div>
+      <div class="text-dim small mt-1">Confirmed remediated</div>
     </div>
   </div>
 
   <div class="col-12 col-sm-6 col-xl-3">
-    <div class="stat-card">
-      <div class="stat-info">
-        <span class="stat-label">Analyst Satisfaction</span>
-        <span class="stat-value text-cyan" id="kpi-satisfaction-rate">--%</span>
-        <span class="stat-subtext text-muted-custom"><i class="bi bi-hand-thumbs-up-fill"></i> Recommendation feedback</span>
-      </div>
-      <div class="stat-icon">
+    <div class="soc-card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="soc-label mb-0">Analyst Satisfaction</span>
         <i class="bi bi-star-fill text-warning"></i>
       </div>
+      <div class="h3 text-cyan fw-bold mb-0" id="kpi-satisfaction-rate">--%</div>
+      <div class="text-dim small mt-1">Feedback acceptance rate</div>
     </div>
   </div>
 </div>
@@ -82,9 +141,9 @@
         <h2 class="soc-card-title">
           <i class="bi bi-pie-chart-fill"></i> Severity Distribution
         </h2>
-        <span class="badge" style="background: rgba(56, 189, 248, 0.1); border: 1px solid var(--border-color); color: var(--accent-blue); font-size: 0.72rem;">Current Queue</span>
+        <span class="badge" style="background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(192, 132, 252, 0.3); color: #C084FC; font-size: 0.72rem;">Active Queue</span>
       </div>
-      <div id="chart-severity" style="height: 280px; width: 100%;">
+      <div id="chart-severity" style="height: 260px; width: 100%;">
         <div class="d-flex align-items-center justify-content-center h-100 text-muted-custom">Loading chart...</div>
       </div>
     </div>
@@ -94,11 +153,11 @@
     <div class="soc-card h-100">
       <div class="soc-card-header">
         <h2 class="soc-card-title">
-          <i class="bi bi-graph-up"></i> Memory Bank Growth & Retrievals
+          <i class="bi bi-graph-up text-cyan"></i> Memory Bank Growth & Retrievals
         </h2>
-        <span class="badge" style="background: rgba(0, 242, 254, 0.1); border: 1px solid rgba(0, 242, 254, 0.3); color: var(--accent-cyan); font-size: 0.72rem;">Hindsight Telemetry</span>
+        <span class="badge" style="background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--neon-cyan); font-size: 0.72rem;">Hindsight Telemetry</span>
       </div>
-      <div id="chart-memory-growth" style="height: 280px; width: 100%;">
+      <div id="chart-memory-growth" style="height: 260px; width: 100%;">
         <div class="d-flex align-items-center justify-content-center h-100 text-muted-custom">Loading chart...</div>
       </div>
     </div>
@@ -111,11 +170,10 @@
     <h2 class="soc-card-title">
       <i class="bi bi-list-task"></i> Recent SOC Investigations
     </h2>
-    <div class="d-flex gap-2">
-      <a href="{{ url_for('incident_history') }}" class="btn-soc-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.78rem;">
-        View All History <i class="bi bi-chevron-right"></i>
-      </a>
-    </div>
+    <a href="{{ url_for('incident_history') }}" class="btn-glass-secondary" style="padding: 0.35rem 0.85rem; font-size: 0.76rem;">
+      <span>View All Archive</span>
+      <i class="bi bi-chevron-right"></i>
+    </a>
   </div>
 
   <div class="table-responsive">
@@ -126,8 +184,8 @@
           <th>Severity</th>
           <th>Alert Title</th>
           <th>Affected Host</th>
-          <th>Alert Type</th>
-          <th>Status</th>
+          <th>Category</th>
+          <th>Outcome</th>
           <th>Timestamp</th>
           <th>Action</th>
         </tr>
@@ -146,4 +204,34 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+  function handleQuickTriageEnter(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      triggerQuickInvestigation();
+    }
+  }
+
+  function handleQuickUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      document.getElementById('quick-triage-input').value = ev.target.result;
+      CyberSOC.showToast(`Imported ${file.name}`);
+    };
+    reader.readAsText(file);
+  }
+
+  function triggerQuickInvestigation() {
+    const val = document.getElementById('quick-triage-input').value.trim();
+    if (!val) {
+      window.location.href = '/investigate';
+      return;
+    }
+    // Pass query param to investigation page
+    sessionStorage.setItem('pending_quick_logs', val);
+    window.location.href = '/investigate?from=quick';
+  }
+</script>
 {% endblock %}
