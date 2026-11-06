@@ -28,3 +28,4 @@ ENV/
 htmlcov/
 hindsight_test_store.json
 .DS_Store
+

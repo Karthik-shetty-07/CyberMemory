@@ -45,3 +45,4 @@ A common vulnerability in agentic AI is allowing the model to autonomously trigg
 * **Audit Tagging**: Every containment action returned by the API is explicitly wrapped with:
   `[RECOMMENDATION ONLY - REQUIRES HUMAN AUTHORIZATION]`
 * Analysts remain the sole decision-makers for operational containment.
+

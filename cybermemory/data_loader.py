@@ -132,3 +132,4 @@ class IncidentDataLoader:
             "severities": severities,
             "total_extracted_iocs": total_iocs
         }
+

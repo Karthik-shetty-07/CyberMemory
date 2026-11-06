@@ -102,3 +102,4 @@ Generate a structured cybersecurity investigation report in the following JSON s
 }}
 """
     return prompt.strip()
+

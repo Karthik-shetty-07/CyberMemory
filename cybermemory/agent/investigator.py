@@ -330,3 +330,4 @@ class IncidentInvestigator:
             "recommended_containment": containment,
             "confidence_and_limitations": limitations
         }
+

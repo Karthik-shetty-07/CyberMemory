@@ -40,3 +40,4 @@ volumes:
 networks:
   cybermemory-net:
     driver: bridge
+

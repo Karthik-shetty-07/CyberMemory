@@ -81,3 +81,4 @@ class PolicyGuard:
             "historical_precedents": [f"[HISTORICAL MEMORY] {h}" for h in historical_context],
             "ai_hypotheses": [f"[AI HYPOTHESIS - UNCONFIRMED] {hyp}" for hyp in ai_hypotheses]
         }
+

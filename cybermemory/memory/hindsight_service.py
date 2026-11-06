@@ -231,3 +231,4 @@ class HindsightMemoryService:
     def clear_bank(self, bank_id: Optional[str] = None) -> None:
         target_bank = bank_id or self.default_bank_id
         self._mock.clear(target_bank)
+

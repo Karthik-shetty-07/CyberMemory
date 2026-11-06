@@ -107,3 +107,4 @@ Giving an AI agent access to historical incident memory introduces real security
 3. **Human feedback is the best training signal.** Capturing analyst ratings ("Helpful", "Superseded") directly inside the memory loop allows the agent to learn the nuances of an enterprise environment over time.
 
 Autonomous agents do not need to replace security engineers. But an agent that remembers what your team learned yesterday makes every engineer on your team dramatically more effective today.
+

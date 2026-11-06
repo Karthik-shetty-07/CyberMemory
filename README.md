@@ -174,3 +174,4 @@ The synthetic dataset in `data/synthetic_incidents.json` covers all 10 mandated 
 * **Prompt Injection Defanging**: Malicious instructions in logs are neutralized before LLM reasoning.
 * **Safe Error Logging**: Automatic redaction of API keys, passwords, and tokens.
 * See [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) for full compliance verification.
+

@@ -8,3 +8,4 @@
   "description": "Paper tray 2 is empty and paper jam reported in roller duplexer unit. Needs physical cartridge reseating.",
   "raw_logs": "PrinterStatus: ERROR_OUT_OF_PAPER Tray: 2 Level: 0%"
 }
+

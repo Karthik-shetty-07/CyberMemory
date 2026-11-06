@@ -42,3 +42,4 @@ EXPOSE 5000
 
 # Run Flask backend via Gunicorn WSGI server
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "60", "cybermemory.api.app:create_app()"]
+

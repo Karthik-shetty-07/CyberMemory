@@ -116,3 +116,4 @@ class FileUploadValidator:
                 return False, "File content is not valid text"
 
         return True, "File is valid"
+

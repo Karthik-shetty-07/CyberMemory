@@ -80,3 +80,4 @@ class SafeLogger:
     def exception(self, msg: str, *args, **kwargs):
         clean_msg = SecretRedactor.redact_text(str(msg))
         self.logger.exception(clean_msg, *args, **kwargs)
+

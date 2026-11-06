@@ -111,3 +111,4 @@ In accordance with strict QA transparency standards, the following 4 issues were
   - Frontend Engineer: Connect Streamlit UI to Flask REST endpoints (`/api/investigate`, `/api/feedback`, `/api/incidents`).
   - AI Orchestrator: Connect live Groq API key in `.env` to verify real cloud inference alongside the deterministic engine.
   - Backend Engineer: Deploy local Docker Compose cluster with live `vectorizeio/hindsight` image.
+

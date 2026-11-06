@@ -100,3 +100,4 @@ class IndicatorExtractor:
             merged.user_accounts = sorted(list(set(merged.user_accounts + ind.user_accounts)))
             merged.hostnames = sorted(list(set(merged.hostnames + ind.hostnames)))
         return merged
+

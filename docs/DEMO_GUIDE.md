@@ -71,3 +71,4 @@ This guide details the step-by-step walkthrough for the judges, exactly fulfilli
   * *Synthesis*: Identifies that finance workstations (`WS-FIN-*`) are repeatedly targeted via macro-enabled invoice attachments using AMSI memory bypasses. Recommends enterprise-wide deployment of Attack Surface Reduction (ASR) rule *'Block Office applications from creating child processes'*.
 * **Talking Point to Judges**:
   > "This is the frontier of agentic memory: moving from one-shot search to reflection across multiple incidents. CyberMemory AI doesn't just remember individual tickets—it synthesizes enterprise threat patterns to recommend systemic security hardening."
+

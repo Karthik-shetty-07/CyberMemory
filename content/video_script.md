@@ -60,3 +60,4 @@
 **Aspect Ratio**: `16:9`  
 **Prompt text to paste into Nano Banana**:
 > A high-tech, cinematic cybersecurity operations center (SOC) dashboard at night. In the center, a glowing split-screen visual comparison: on the left side, a dull red wireframe AI human silhouette labeled "Stateless AI (45 Min Triage)" surrounded by chaotic warning popups; on the right side, a sharp electric-cyan and deep blue AI neural network brain labeled "CyberMemory AI + Hindsight (4 Min Triage)" with clean green checkmarks and connected threat data nodes. Bold modern typography in the upper third reading: "AI AGENTS THAT NEVER FORGET". High contrast, professional enterprise aesthetic, 8K render, photorealistic lighting, 16:9 aspect ratio.
+

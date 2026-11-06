@@ -65,3 +65,4 @@ Powered by Vectorize Hindsight:
 * **`IncidentInvestigator`**: Coordinates the alert lifecycle. Operates seamlessly in two distinct modes:
   * **Cold Start (Empty Memory)**: When no past cases exist, provides baseline heuristic triage and explicitly warns the analyst that no historical context was retrieved.
   * **Warm Memory (Active Hindsight)**: When similar cases exist, dynamically retrieves ancestral incident IDs, historical root causes, and prior remediation steps to generate high-confidence, context-aware triage plans.
+
