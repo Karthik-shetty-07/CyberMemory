@@ -54,7 +54,7 @@ Designed from the ground up to reflect a mission-critical cybersecurity operatio
 ### 2. Setup & Installation
 ```bash
 # Clone the repository and switch to frontend branch
-git checkout feature/frontend
+git checkout frontend-and-dashboard
 
 # Install dependencies
 pip install -r requirements.txt
