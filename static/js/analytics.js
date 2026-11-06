@@ -48,9 +48,9 @@ function renderSatisfactionTrend(trends) {
     type: 'scatter',
     mode: 'lines+markers',
     fill: 'tozeroy',
-    fillcolor: 'rgba(0, 242, 254, 0.08)',
-    line: { color: '#00F2FE', width: 3, shape: 'spline' },
-    marker: { size: 7, color: '#00F2FE' }
+    fillcolor: 'rgba(28, 28, 31, 0.06)',
+    line: { color: '#1c1c1f', width: 2.5, shape: 'spline' },
+    marker: { size: 6, color: '#1c1c1f' }
   };
 
   const traceRetrievals = {
@@ -60,8 +60,8 @@ function renderSatisfactionTrend(trends) {
     yaxis: 'y2',
     type: 'scatter',
     mode: 'lines+markers',
-    line: { color: '#38BDF8', width: 2, dash: 'dot', shape: 'spline' },
-    marker: { size: 6, color: '#38BDF8' }
+    line: { color: '#8d8d96', width: 2, dash: 'dot', shape: 'spline' },
+    marker: { size: 5, color: '#8d8d96' }
   };
 
   const layout = {
@@ -72,22 +72,22 @@ function renderSatisfactionTrend(trends) {
       orientation: 'h',
       x: 0,
       y: 1.15,
-      font: { color: '#94A3B8', size: 11, family: 'Inter' }
+      font: { color: '#71717a', size: 11, family: 'Inter' }
     },
     xaxis: {
-      gridcolor: 'rgba(56, 189, 248, 0.06)',
-      tickfont: { color: '#64748B', size: 11, family: 'Inter' }
+      gridcolor: 'rgba(23, 23, 26, 0.06)',
+      tickfont: { color: '#71717a', size: 11, family: 'Inter' }
     },
     yaxis: {
       title: 'Satisfaction %',
-      titlefont: { color: '#00F2FE', size: 10 },
+      titlefont: { color: '#3f3f46', size: 10 },
       range: [70, 100],
-      gridcolor: 'rgba(56, 189, 248, 0.06)',
+      gridcolor: 'rgba(23, 23, 26, 0.06)',
       tickfont: { color: '#64748B', size: 10, family: 'JetBrains Mono' }
     },
     yaxis2: {
       title: 'Retrieval Count',
-      titlefont: { color: '#38BDF8', size: 10 },
+      titlefont: { color: '#71717a', size: 10 },
       overlaying: 'y',
       side: 'right',
       gridcolor: 'transparent',
@@ -111,8 +111,8 @@ function renderTriageComparison(withoutMem, withMem) {
     textposition: 'auto',
     textfont: { family: 'JetBrains Mono', color: '#070B14', size: 12, weight: 'bold' },
     marker: {
-      color: ['#F97316', '#00F2FE'],
-      line: { color: '#070B14', width: 2 }
+      color: ['#8d8d96', '#1c1c1f'],
+      line: { color: '#ffffff', width: 0 }
     }
   }];
 
@@ -121,12 +121,12 @@ function renderTriageComparison(withoutMem, withMem) {
     plot_bgcolor: 'transparent',
     margin: { t: 20, b: 40, l: 40, r: 20 },
     xaxis: {
-      tickfont: { color: '#94A3B8', size: 11, family: 'Inter' }
+      tickfont: { color: '#52525b', size: 11, family: 'Inter' }
     },
     yaxis: {
       title: 'Minutes per Incident',
-      titlefont: { color: '#94A3B8', size: 10 },
-      gridcolor: 'rgba(56, 189, 248, 0.06)',
+      titlefont: { color: '#71717a', size: 10 },
+      gridcolor: 'rgba(23, 23, 26, 0.06)',
       tickfont: { color: '#64748B', size: 10, family: 'JetBrains Mono' }
     }
   };
@@ -152,8 +152,8 @@ function renderMitreCoverage(coverageList) {
     textposition: 'inside',
     textfont: { family: 'JetBrains Mono', color: '#070B14', size: 11, weight: 'bold' },
     marker: {
-      color: '#38BDF8',
-      line: { color: '#070B14', width: 1 }
+      color: '#1c1c1f',
+      line: { color: '#ffffff', width: 0 }
     }
   }];
 
@@ -162,11 +162,11 @@ function renderMitreCoverage(coverageList) {
     plot_bgcolor: 'transparent',
     margin: { t: 15, b: 30, l: 150, r: 20 },
     xaxis: {
-      gridcolor: 'rgba(56, 189, 248, 0.06)',
+      gridcolor: 'rgba(23, 23, 26, 0.06)',
       tickfont: { color: '#64748B', size: 10, family: 'JetBrains Mono' }
     },
     yaxis: {
-      tickfont: { color: '#CBD5E1', size: 10, family: 'Inter' }
+      tickfont: { color: '#3f3f46', size: 10, family: 'Inter' }
     }
   };
 
@@ -180,7 +180,7 @@ function renderFeedbackDistribution(dist) {
 
   const labels = Object.keys(dist);
   const values = Object.values(dist);
-  const colors = ['#10B981', '#EAB308', '#EF4444'];
+  const colors = ['#1c1c1f', '#71717a', '#d4d4d8'];
 
   const data = [{
     values: values,
@@ -192,7 +192,7 @@ function renderFeedbackDistribution(dist) {
       line: { color: '#070B14', width: 2 }
     },
     textinfo: 'percent',
-    textfont: { family: 'Inter', color: '#FFFFFF', size: 11 }
+    textfont: { family: 'Inter', color: '#17171a', size: 11 }
   }];
 
   const layout = {
@@ -204,7 +204,7 @@ function renderFeedbackDistribution(dist) {
       orientation: 'h',
       x: 0,
       y: -0.15,
-      font: { color: '#94A3B8', size: 10, family: 'Inter' }
+      font: { color: '#71717a', size: 10, family: 'Inter' }
     }
   };
 

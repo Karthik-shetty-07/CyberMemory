@@ -119,6 +119,9 @@ def get_dashboard_stats():
     """Returns high-level SOC dashboard metrics"""
     proxy = try_backend_proxy('/api/dashboard/stats')
     if proxy:
+        if isinstance(proxy, dict):
+            proxy = dict(proxy)
+            proxy.setdefault('source', 'backend')
         return jsonify(proxy)
 
     total = len(incidents_db)
@@ -150,6 +153,7 @@ def get_dashboard_stats():
             {"date": "2026-11-05", "nodes": len(memory_bank_db), "retrievals": 48}
         ],
         "recent_investigations": recent,
+        "source": "local",
         "system_status": {
             "hindsight_connected": True,
             "hindsight_bank": "cybermemory-soc-v1",

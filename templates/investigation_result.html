@@ -2,7 +2,7 @@
 
 {% block title %}Investigation Result - {{ incident.id if incident else 'Detail' }}{% endblock %}
 {% block page_icon %}<i class="bi bi-shield-shaded"></i>{% endblock %}
-{% block page_title %}Investigation Analysis: {{ incident.id if incident else 'N/A' }}{% endblock %}
+{% block page_title %}{{ incident.id if incident else 'Investigation' }}{% endblock %}
 
 {% block content %}
 {% if not incident %}

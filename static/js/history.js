@@ -88,8 +88,8 @@ function renderHistoryTable(incidents) {
           <div class="fw-semibold text-white">${escapeHtml(inc.title)}</div>
           <div class="text-dim small text-truncate" style="max-width: 320px;">${escapeHtml(inc.description || '')}</div>
         </td>
-        <td class="font-mono" style="color: #BAE6FD;">${escapeHtml(inc.affected_host || 'N/A')}</td>
-        <td><span style="font-size: 0.76rem; color: #94A3B8;">${escapeHtml(inc.alert_type || 'General')}</span></td>
+        <td class="font-mono" style="color: #3f3f46;">${escapeHtml(inc.affected_host || 'N/A')}</td>
+        <td><span style="font-size: 0.76rem; color: #71717a;">${escapeHtml(inc.alert_type || 'General')}</span></td>
         <td><span class="outcome-badge ${outcomeClass}">${escapeHtml(inc.final_outcome || 'In Progress')}</span></td>
         <td>${feedbackHtml}</td>
         <td class="font-mono" style="font-size: 0.72rem; color: #64748B;">${CyberSOC.formatDate(inc.timestamp)}</td>

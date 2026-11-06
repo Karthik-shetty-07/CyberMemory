@@ -1,181 +1,248 @@
 /**
- * CyberMemory AI — Dashboard Controller
- * Author: Frontend & Dashboard Engineering
+ * Dashboard view. Reads the shared /api/dashboard/stats contract and
+ * fills the recent table from /api/incidents when the stats payload
+ * does not include a recent list yet.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
   loadDashboardData();
+  bindRangeControls();
+  initCalendar();
 });
+
+let dashState = {
+  growth: [],
+  range: 'month'
+};
 
 async function loadDashboardData() {
   try {
     const data = await CyberMemoryAPI.getDashboardStats();
+    if (window.paintBackendStatus) window.paintBackendStatus(data);
     renderKpis(data);
-    renderSeverityChart(data.severity_breakdown);
-    renderMemoryGrowthChart(data.memory_growth);
-    renderRecentTable(data.recent_investigations);
+    dashState.growth = data.memory_growth || [];
+    renderGrowthChart();
+    renderRecallRing(data);
 
-    if (data.system_status && data.system_status.hindsight_bank) {
-      const bankEl = document.getElementById('sidebar-bank-id');
-      if (bankEl) bankEl.textContent = data.system_status.hindsight_bank;
+    let recent = data.recent_investigations || [];
+    if (!recent.length) {
+      const list = await CyberMemoryAPI.getIncidents();
+      recent = (list.incidents || []).slice(0, 6);
     }
+    renderRecentTable(recent);
   } catch (err) {
     console.error('Failed to load dashboard data:', err);
-    CyberSOC.showToast('Failed to load dashboard metrics. Re-attempting in standalone mode...', 'error');
+    CyberSOC.showToast('Could not load dashboard data from the API.', 'error');
+    const body = document.getElementById('recent-investigations-body');
+    if (body) {
+      body.innerHTML = '<tr><td colspan="5" class="empty-note">The dashboard API did not respond.</td></tr>';
+    }
   }
 }
 
 function renderKpis(data) {
-  const totalEl = document.getElementById('kpi-total-investigated');
-  const memEl = document.getElementById('kpi-memory-stored');
-  const resEl = document.getElementById('kpi-resolved-incidents');
-  const satEl = document.getElementById('kpi-satisfaction-rate');
+  setText('kpi-total-investigated', formatNumber(data.total_investigated));
+  setText('kpi-memory-stored', formatNumber(data.memory_items_stored));
+  setText('kpi-resolved-incidents', formatNumber(data.resolved_incidents));
+  setText('kpi-satisfaction-rate', `${trimNumber(data.feedback_satisfaction_rate)}%`);
 
-  if (totalEl) totalEl.textContent = data.total_investigated ?? 0;
-  if (memEl) memEl.textContent = data.memory_items_stored ?? 0;
-  if (resEl) resEl.textContent = data.resolved_incidents ?? 0;
-  if (satEl) satEl.textContent = `${data.feedback_satisfaction_rate ?? 95}%`;
+  const severity = data.severity_breakdown || {};
+  const critical = severity.Critical || 0;
+  const bank = (data.system_status && data.system_status.hindsight_bank) || 'memory bank';
+  const deltas = data.deltas || {};
+
+  setFoot('kpi-total-foot', deltas.total_investigated, critical
+    ? `${critical} critical still in the queue`
+    : 'Cases in the investigation store');
+  setFoot('kpi-memory-foot', deltas.memory_items_stored, `Stored in ${bank}`);
+  setFoot('kpi-resolved-foot', deltas.resolved_incidents, 'Confirmed or cleared');
+  setFoot('kpi-satisfaction-foot', deltas.feedback_satisfaction_rate, 'From analyst feedback');
 }
 
-function renderSeverityChart(severity) {
-  const container = document.getElementById('chart-severity');
-  if (!container || !window.Plotly) return;
-
-  const values = [
-    severity['Critical'] || 0,
-    severity['High'] || 0,
-    severity['Medium'] || 0,
-    severity['Low'] || 0
-  ];
-
-  const labels = ['Critical', 'High', 'Medium', 'Low'];
-  const colors = ['#EF4444', '#F97316', '#EAB308', '#10B981'];
-
-  const plotData = [{
-    values: values,
-    labels: labels,
-    type: 'pie',
-    hole: 0.65,
-    marker: {
-      colors: colors,
-      line: { color: 'rgba(18, 14, 32, 0.9)', width: 2 }
-    },
-    textinfo: 'value+percent',
-    hoverinfo: 'label+value+percent',
-    textfont: { family: 'Inter', color: '#FFFFFF', size: 12 }
-  }];
-
-  const layout = {
-    paper_bgcolor: 'transparent',
-    plot_bgcolor: 'transparent',
-    showlegend: true,
-    legend: {
-      orientation: 'h',
-      x: 0,
-      y: -0.15,
-      font: { color: '#94A3B8', size: 11, family: 'Inter' }
-    },
-    margin: { t: 15, b: 35, l: 15, r: 15 },
-    annotations: [{
-      font: { size: 14, color: '#FFFFFF', family: 'Inter', weight: 'bold' },
-      showarrow: false,
-      text: `${values.reduce((a, b) => a + b, 0)} Total`,
-      x: 0.5,
-      y: 0.5
-    }]
-  };
-
-  const config = { responsive: true, displayModeBar: false };
-  Plotly.newPlot('chart-severity', plotData, layout, config);
+function setFoot(id, delta, fallback) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (delta === undefined || delta === null || delta === '') {
+    el.textContent = fallback;
+    return;
+  }
+  const value = Number(delta);
+  const up = value >= 0;
+  el.innerHTML = `<span class="delta-up">${up ? '▲' : '▼'} ${Math.abs(trimNumber(value))}% from last period</span>`;
 }
 
-function renderMemoryGrowthChart(growthData) {
+function bindRangeControls() {
+  document.querySelectorAll('.range-pills button').forEach((button) => {
+    button.addEventListener('click', () => {
+      document.querySelectorAll('.range-pills button').forEach((item) => item.classList.remove('active'));
+      button.classList.add('active');
+      dashState.range = button.dataset.range;
+      renderGrowthChart();
+    });
+  });
+}
+
+function renderGrowthChart() {
   const container = document.getElementById('chart-memory-growth');
-  if (!container || !window.Plotly || !growthData) return;
+  const label = document.getElementById('dash-date-label');
+  if (!container) return;
 
-  const dates = growthData.map(d => d.date);
-  const nodes = growthData.map(d => d.nodes);
-  const retrievals = growthData.map(d => d.retrievals);
+  const points = sliceGrowth(dashState.growth, dashState.range);
+  if (!points.length) {
+    container.innerHTML = '<div class="empty-note">No memory growth series in this response.</div>';
+    if (label) label.textContent = 'No dated series';
+    return;
+  }
 
-  const traceNodes = {
-    x: dates,
-    y: nodes,
-    name: 'Retained Nodes',
-    type: 'scatter',
-    mode: 'lines+markers',
-    fill: 'tozeroy',
-    fillcolor: 'rgba(168, 85, 247, 0.12)',
-    line: { color: '#A855F7', width: 2.8, shape: 'spline' },
-    marker: { size: 6, color: '#A855F7' }
-  };
+  const max = Math.max(...points.map((point) => point.nodes), 1);
+  const ticks = [max, Math.round(max / 2), 0];
+  if (label) {
+    label.textContent = `${formatShortDate(points[0].date)} – ${formatShortDate(points[points.length - 1].date)}`;
+  }
 
-  const traceRetrievals = {
-    x: dates,
-    y: retrievals,
-    name: 'Investigation Retrievals',
-    type: 'scatter',
-    mode: 'lines+markers',
-    line: { color: '#06B6D4', width: 2, dash: 'dot', shape: 'spline' },
-    marker: { size: 5, color: '#06B6D4' }
-  };
+  const shades = ['', 'mid', 'alt', '', 'mid', 'alt'];
+  container.innerHTML = `
+    <div class="bar-axis">
+      ${ticks.map((tick) => `<span>${formatCompact(tick)}</span>`).join('')}
+    </div>
+    <div class="bar-plot">
+      ${points.map((point, index) => `
+        <div class="bar-col">
+          <div class="bar ${shades[index % shades.length]}" style="height:${Math.max(8, Math.round((point.nodes / max) * 168))}px" title="${point.nodes} memories"></div>
+          <span>${formatBarLabel(point.date)}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
 
-  const layout = {
-    paper_bgcolor: 'transparent',
-    plot_bgcolor: 'transparent',
-    margin: { t: 20, b: 35, l: 35, r: 20 },
-    legend: {
-      orientation: 'h',
-      x: 0,
-      y: 1.15,
-      font: { color: '#94A3B8', size: 11, family: 'Inter' }
-    },
-    xaxis: {
-      gridcolor: 'rgba(56, 189, 248, 0.06)',
-      tickfont: { color: '#64748B', size: 10, family: 'JetBrains Mono' },
-      zeroline: false
-    },
-    yaxis: {
-      gridcolor: 'rgba(56, 189, 248, 0.06)',
-      tickfont: { color: '#64748B', size: 10, family: 'JetBrains Mono' },
-      zeroline: false
-    }
-  };
+function sliceGrowth(points, range) {
+  if (!points.length) return [];
+  if (range === 'year') return points;
+  const last = new Date(points[points.length - 1].date);
+  if (Number.isNaN(last.getTime())) return points;
+  const windowDays = range === 'day' ? 1 : range === 'week' ? 7 : 31;
+  const start = new Date(last);
+  start.setDate(start.getDate() - (windowDays - 1));
+  const sliced = points.filter((point) => {
+    const date = new Date(point.date);
+    return !Number.isNaN(date.getTime()) && date >= start && date <= last;
+  });
+  return sliced.length ? sliced : points.slice(-windowDays);
+}
 
-  const config = { responsive: true, displayModeBar: false };
-  Plotly.newPlot('chart-memory-growth', [traceNodes, traceRetrievals], layout, config);
+function renderRecallRing(data) {
+  const total = Number(data.total_investigated) || 0;
+  const resolved = Number(data.resolved_incidents) || 0;
+  const pct = total ? Math.round((resolved / total) * 100) : Math.round(data.feedback_satisfaction_rate || 0);
+  const ring = document.getElementById('recall-ring');
+  const ringLabel = document.getElementById('recall-ring-label');
+  const caption = document.getElementById('recall-caption');
+  if (ring) ring.style.setProperty('--pct', String(pct));
+  if (ringLabel) ringLabel.textContent = `${pct}%`;
+  if (caption) {
+    caption.textContent = total
+      ? `${formatNumber(resolved)} of ${formatNumber(total)} incidents have a recorded outcome`
+      : 'Outcome coverage appears once incidents are loaded';
+  }
 }
 
 function renderRecentTable(incidents) {
   const tbody = document.getElementById('recent-investigations-body');
   if (!tbody) return;
-
-  if (!incidents || incidents.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No recent investigations found.</td></tr>`;
+  if (!incidents || !incidents.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-note">No investigations yet.</td></tr>';
     return;
   }
 
-  tbody.innerHTML = incidents.map(inc => {
-    const sevClass = `sev-${(inc.severity || 'low').toLowerCase()}`;
-    const outcomeClass = inc.final_outcome === 'Confirmed Malicious' ? 'outcome-malicious'
-      : (inc.final_outcome === 'False Positive' ? 'outcome-fp' : 'outcome-investigating');
-
+  tbody.innerHTML = incidents.slice(0, 6).map((inc) => {
+    const outcome = inc.final_outcome || 'In progress';
+    const pill = outcome === 'Confirmed Malicious'
+      ? 'status-pill'
+      : (outcome === 'False Positive' ? 'status-pill soft' : 'status-pill line');
+    const label = outcome === 'Confirmed Malicious' ? 'Malicious' : (outcome === 'False Positive' ? 'Cleared' : 'Open');
     return `
       <tr>
-        <td class="font-mono text-cyan fw-semibold">${inc.id}</td>
-        <td><span class="sev-badge ${sevClass}">${inc.severity}</span></td>
-        <td class="fw-medium text-white">${escapeHtml(inc.title)}</td>
-        <td class="font-mono" style="color: #BAE6FD;">${escapeHtml(inc.affected_host || 'N/A')}</td>
-        <td><span style="font-size: 0.78rem; color: #94A3B8;">${escapeHtml(inc.alert_type || 'General')}</span></td>
-        <td><span class="outcome-badge ${outcomeClass}">${escapeHtml(inc.final_outcome || 'In Progress')}</span></td>
-        <td class="font-mono" style="font-size: 0.75rem; color: #64748B;">${CyberSOC.formatDate(inc.timestamp)}</td>
         <td>
-          <a href="/investigation/${inc.id}" class="btn-soc-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
-            Inspect <i class="bi bi-box-arrow-up-right"></i>
-          </a>
+          <div class="incident-cell">
+            <span class="incident-thumb"><i class="bi bi-shield"></i></span>
+            <span>${escapeHtml(inc.title || 'Untitled incident')}</span>
+          </div>
         </td>
+        <td>${escapeHtml(inc.affected_host || '—')}</td>
+        <td class="font-mono">${escapeHtml(inc.id || '')}</td>
+        <td><span class="sev-badge sev-${(inc.severity || 'low').toLowerCase()}">${escapeHtml(inc.severity || 'Low')}</span></td>
+        <td><a class="${pill}" href="/investigation/${encodeURIComponent(inc.id || '')}">${label}</a></td>
       </tr>
     `;
   }).join('');
+}
+
+let calCursor = startOfWeek(new Date());
+
+function initCalendar() {
+  renderCalendar();
+  const prev = document.getElementById('cal-prev');
+  const next = document.getElementById('cal-next');
+  if (prev) prev.addEventListener('click', () => { calCursor.setDate(calCursor.getDate() - 7); renderCalendar(); });
+  if (next) next.addEventListener('click', () => { calCursor.setDate(calCursor.getDate() + 7); renderCalendar(); });
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('dash-calendar');
+  const label = document.getElementById('cal-label');
+  if (!grid) return;
+  const today = new Date();
+  if (label) {
+    label.textContent = calCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+  const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  let html = dows.map((dow) => `<div class="cal-dow">${dow}</div>`).join('');
+  for (let i = 0; i < 7; i += 1) {
+    const day = new Date(calCursor);
+    day.setDate(calCursor.getDate() + i);
+    const isToday = today.toDateString() === day.toDateString();
+    html += `<div class="cal-day${isToday ? ' is-today' : ''}">${day.getDate()}</div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function startOfWeek(date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  copy.setDate(copy.getDate() - copy.getDay());
+  return copy;
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString('en-US');
+}
+
+function trimNumber(value) {
+  const number = Number(value || 0);
+  return Number.isInteger(number) ? number : Math.round(number * 10) / 10;
+}
+
+function formatCompact(value) {
+  if (value >= 1000) return `${Math.round(value / 100) / 10}k`;
+  return String(value);
+}
+
+function formatShortDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value || '';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatBarLabel(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value || '';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function escapeHtml(text) {

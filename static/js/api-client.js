@@ -42,7 +42,8 @@ const CyberMemoryAPI = {
    * 1. Get Dashboard Summary Statistics
    */
   async getDashboardStats() {
-    return this.request('/api/dashboard/stats');
+    const data = await this.request('/api/dashboard/stats');
+    return normalizeDashboardStats(data);
   },
 
   /**
@@ -174,6 +175,70 @@ window.CyberSOC = {
     }, 3500);
   }
 };
+
+/**
+ * Accepts the documented /api/dashboard/stats contract and a few aliases
+ * the backend branch may send while that API is still settling.
+ */
+function normalizeDashboardStats(raw) {
+  const data = raw && typeof raw === 'object' ? raw : {};
+  const severity = data.severity_breakdown || data.severity || data.severities || {};
+  const growth = data.memory_growth || data.growth || data.timeline || [];
+  const recent = data.recent_investigations || data.recent || data.latest_incidents || [];
+
+  return {
+    ...data,
+    total_investigated: firstNumber(data.total_investigated, data.total_incidents, data.total, 0),
+    memory_items_stored: firstNumber(data.memory_items_stored, data.memory_count, data.memories, 0),
+    resolved_incidents: firstNumber(data.resolved_incidents, data.resolved, data.closed, 0),
+    feedback_satisfaction_rate: firstNumber(
+      data.feedback_satisfaction_rate,
+      data.satisfaction_rate,
+      data.satisfaction,
+      0
+    ),
+    severity_breakdown: {
+      Critical: severity.Critical || severity.critical || 0,
+      High: severity.High || severity.high || 0,
+      Medium: severity.Medium || severity.medium || 0,
+      Low: severity.Low || severity.low || 0
+    },
+    memory_growth: Array.isArray(growth) ? growth.map(point => ({
+      date: point.date || point.day || point.label || '',
+      nodes: firstNumber(point.nodes, point.memories, point.value, 0),
+      retrievals: firstNumber(point.retrievals, point.recalls, point.count, 0)
+    })) : [],
+    recent_investigations: Array.isArray(recent) ? recent : [],
+    deltas: data.deltas || data.period_change || null,
+    source: data.source || (data.system_status && data.system_status.hindsight_connected ? 'backend' : 'local'),
+    system_status: data.system_status || {}
+  };
+}
+
+function firstNumber(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null || value === '') continue;
+    const number = Number(value);
+    if (!Number.isNaN(number)) return number;
+  }
+  return 0;
+}
+
+function bootBackendStatus() {
+  if (typeof window.paintBackendStatus !== 'function') return;
+  CyberMemoryAPI.getDashboardStats()
+    .then(window.paintBackendStatus)
+    .catch(() => {
+      const label = document.getElementById('backend-source-label');
+      if (label) label.textContent = 'API offline';
+    });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootBackendStatus);
+} else {
+  bootBackendStatus();
+}
 
 function textEscape(str) {
   const p = document.createElement('p');
