@@ -314,6 +314,9 @@
         <div class="p-3 text-center rounded" style="background: rgba(11, 18, 32, 0.6); border: 1px dashed var(--border-color);">
           <i class="bi bi-info-circle text-muted fs-4 d-block mb-1"></i>
           <span class="text-white fw-semibold small d-block">No Historical Matches Recalled</span>
+          {% if incident.recall_status in ('unavailable', 'error') %}
+          <span class="text-warning d-block" style="font-size: 0.72rem;">Memory recall failed ({{ incident.recall_status }}), so this is not a true cold start.</span>
+          {% endif %}
           <span class="text-dim" style="font-size: 0.72rem;">This alert is operating in cold baseline mode. Feedback on this investigation will be retained into Hindsight for future encounters.</span>
         </div>
       {% endif %}

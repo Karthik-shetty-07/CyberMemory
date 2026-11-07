@@ -437,12 +437,11 @@ def get_dashboard_stats():
 
 
 
+    memory_mode = (health_result or {}).get('mode', 'hindsight')
     hindsight_connected = (
-
         health_result is not None
-
         and health_result.get('status') == 'ok'
-
+        and memory_mode != 'local'
     )
 
 
@@ -506,6 +505,7 @@ def get_dashboard_stats():
         "system_status": {
 
             "hindsight_connected": hindsight_connected,
+            "memory_mode": memory_mode,
 
             "hindsight_bank": "cybermemory",
 
@@ -817,7 +817,9 @@ def run_investigation():
 
                     "relevance_explanation": (
 
-                        "Retrieved from persistent Hindsight memory."
+                        "Retrieved from the local fallback memory bank (Hindsight not configured)."
+                        if recall_result.get('mode') == 'local'
+                        else "Retrieved from persistent Hindsight memory."
 
                     ),
 
@@ -1226,10 +1228,13 @@ def submit_feedback(incident_id):
         "feedback_saved": True,
         "hindsight_retained": hindsight_retained,
         "hindsight_status": result.get('hindsight_status'),
+        "memory_mode": result.get('mode', 'hindsight'),
         "retained_memory_id": None,
         "incident_id": incident_id,
         "message": (
-            "Feedback saved to SQLite and retained in Hindsight."
+            ("Feedback saved and retained in the local fallback memory bank."
+             if result.get('mode') == 'local'
+             else "Feedback saved to SQLite and retained in Hindsight.")
             if hindsight_retained
             else "Feedback saved to SQLite, but Hindsight retention is unavailable."
         )
@@ -1287,67 +1292,65 @@ def search_memory():
 
 
 @app.route('/api/analytics/learning', methods=['GET'])
-
 def get_learning_analytics():
+    """Learning metrics computed from recorded incidents. No hardcoded values."""
+    from collections import Counter
 
-    """Return learning progression metrics demonstrating Hindsight memory impact"""
+    incidents = list(incidents_db)
+    total_memories = 0
+    mem = try_backend_proxy('/api/memory/explorer', params={'limit': 1, 'offset': 0})
+    if mem and mem.get('status') in ('ok', 'empty'):
+        total_memories = mem.get('total', 0) or 0
+
+    with_memory = [i for i in incidents if i.get('memory_used')]
+    investigated_live = [i for i in incidents if 'memory_used' in i]
+    reuse_rate = (
+        round(len(with_memory) / len(investigated_live) * 100, 1) if investigated_live else None
+    )
+
+    # Feedback distribution and weekly satisfaction from real analyst ratings.
+    ratings = []
+    for inc in incidents:
+        fb = inc.get('analyst_feedback') or {}
+        if isinstance(fb, dict) and fb.get('rating'):
+            ratings.append((inc.get('timestamp') or fb.get('timestamp') or '', fb['rating']))
+    dist = Counter(r for _, r in ratings)
+    weekly = {}
+    for ts, rating in ratings:
+        week = ts[:10] if ts else 'Unknown'
+        try:
+            d = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+            week = f"{d.isocalendar()[0]}-W{d.isocalendar()[1]:02d}"
+        except Exception:
+            pass
+        w = weekly.setdefault(week, [0, 0])
+        w[0] += 1
+        w[1] += 1 if str(rating).lower() in ('helpful', 'positive') else 0
+    satisfaction_trend = [
+        {"week": k, "satisfaction_rate": round(v[1] / v[0] * 100, 1), "retrievals": v[0]}
+        for k, v in sorted(weekly.items())
+    ]
+
+    # MITRE coverage from incident indicators.
+    mitre = Counter()
+    for inc in incidents:
+        ind = inc.get('indicators') or {}
+        techs = ind.get('mitre_techniques') or ind.get('mitre') or [] if isinstance(ind, dict) else []
+        for t in techs:
+            mitre[str(t).split()[0]] += 1
 
     return jsonify({
-
-        "total_memories": len(memory_bank_db),
-
-        "retrieval_count": 87,
-
-        "reuse_rate_percentage": 78.4,
-
-        "avg_triage_time_without_memory_min": 38.5,
-
-        "avg_triage_time_with_memory_min": 7.2,
-
-        "triage_time_reduction_percentage": 81.3,
-
-        "satisfaction_trend": [
-
-            {"week": "Week 1", "satisfaction_rate": 81.0, "retrievals": 12},
-
-            {"week": "Week 2", "satisfaction_rate": 86.4, "retrievals": 28},
-
-            {"week": "Week 3", "satisfaction_rate": 92.1, "retrievals": 54},
-
-            {"week": "Week 4", "satisfaction_rate": 96.8, "retrievals": 87}
-
-        ],
-
-        "mitre_coverage": [
-
-            {"technique": "T1059 (Execution)", "count": 6},
-
-            {"technique": "T1110 (Brute Force)", "count": 3},
-
-            {"technique": "T1486 (Ransomware)", "count": 2},
-
-            {"technique": "T1078 (Valid Accounts)", "count": 3},
-
-            {"technique": "T1190 (Exploit Public App)", "count": 2},
-
-            {"technique": "T1567 (Exfiltration)", "count": 2},
-
-            {"technique": "T1055 (Process Injection)", "count": 1},
-
-            {"technique": "T1197 (BITS Jobs)", "count": 1}
-
-        ],
-
-        "feedback_distribution": {
-
-            "Helpful": 18,
-
-            "Partially Helpful": 2,
-
-            "Not Helpful": 0
-
-        }
-
+        "total_memories": total_memories,
+        "retrieval_count": len(with_memory),
+        "reuse_rate_percentage": reuse_rate,
+        # Triage time is not instrumented yet, so no numbers are reported.
+        "avg_triage_time_without_memory_min": None,
+        "avg_triage_time_with_memory_min": None,
+        "triage_time_reduction_percentage": None,
+        "satisfaction_trend": satisfaction_trend,
+        "mitre_coverage": [{"technique": t, "count": c} for t, c in mitre.most_common(8)],
+        "feedback_distribution": dict(dist),
+        "data_source": "computed from recorded incidents and analyst feedback",
     })
 
 
@@ -1356,6 +1359,9 @@ if __name__ == '__main__':
 
     port = int(os.environ.get('PORT', 5000))
 
-    app.run(host='0.0.0.0', port=port, debug=True)
+    debug = os.environ.get('FLASK_DEBUG') == '1'
+    # Debug mode exposes an interactive console, so it is opt-in and local-only.
+    host = os.environ.get('HOST', '127.0.0.1' if debug else '0.0.0.0')
+    app.run(host=host, port=port, debug=debug)
 
 

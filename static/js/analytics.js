@@ -27,10 +27,10 @@ function renderKpis(data) {
   const reuseEl = document.getElementById('stat-reuse-rate');
   const timeEl = document.getElementById('stat-time-saved');
 
-  if (memEl) memEl.textContent = data.total_memories ?? 19;
-  if (retEl) retEl.textContent = data.retrieval_count ?? 87;
-  if (reuseEl) reuseEl.textContent = `${data.reuse_rate_percentage ?? 78.4}%`;
-  if (timeEl) timeEl.textContent = `-${data.triage_time_reduction_percentage ?? 81.3}%`;
+  if (memEl) memEl.textContent = data.total_memories ?? 0;
+  if (retEl) retEl.textContent = data.retrieval_count ?? 0;
+  if (reuseEl) reuseEl.textContent = data.reuse_rate_percentage == null ? 'n/a' : `${data.reuse_rate_percentage}%`;
+  if (timeEl) timeEl.textContent = data.triage_time_reduction_percentage == null ? 'Not measured' : `-${data.triage_time_reduction_percentage}%`;
 }
 
 function renderSatisfactionTrend(trends) {
@@ -101,13 +101,18 @@ function renderSatisfactionTrend(trends) {
 
 function renderTriageComparison(withoutMem, withMem) {
   const container = document.getElementById('chart-triage-comparison');
-  if (!container || !window.Plotly) return;
+  if (!container) return;
+  if (withoutMem == null || withMem == null) {
+    container.innerHTML = '<p style="padding:1rem;opacity:.7">Triage time is not instrumented yet, so no comparison is shown.</p>';
+    return;
+  }
+  if (!window.Plotly) return;
 
   const data = [{
     x: ['Without Memory (Cold)', 'With Hindsight Memory'],
-    y: [withoutMem || 38.5, withMem || 7.2],
+    y: [withoutMem, withMem],
     type: 'bar',
-    text: [`${withoutMem || 38.5} mins`, `${withMem || 7.2} mins`],
+    text: [`${withoutMem} mins`, `${withMem} mins`],
     textposition: 'auto',
     textfont: { family: 'JetBrains Mono', color: '#070B14', size: 12, weight: 'bold' },
     marker: {

@@ -78,7 +78,7 @@ corrections influence the next similar investigation.
 1. Create an instance on [Hindsight Cloud](https://ui.hindsight.vectorize.io) (or run the open-source server).
 2. Copy `.env.example` to `.env` and set `HINDSIGHT_URL` and `HINDSIGHT_API_KEY`.
 3. `pip install -r requirements.txt` (includes `hindsight-client`).
-4. Verify: `python -m backend.tests.smoke_service` should print `HEALTH: {'status': 'ok', ...}` and `RETAIN: {'status': 'ok', ...}`.
+4. Verify: `python -m backend.smoke.smoke_service` should print `HEALTH: {'status': 'ok', ...}` and `RETAIN: {'status': 'ok', ...}`.
 5. Start `python app.py`. `GET /api/memory/health` reports the active mode.
 
 If Hindsight is not configured, the app falls back to a local bank and labels every response
@@ -131,7 +131,7 @@ python -m unittest discover -s tests -t . -v
 python -m unittest discover -s backend/tests -t . -v
 ```
 
-`backend/tests/smoke_service.py`, `probe_hindsight.py` and `smoke_hindsight.py` are manual scripts against a live Hindsight server.
+`backend/smoke/smoke_service.py`, `probe_hindsight.py` and `smoke_hindsight.py` are manual scripts against a live Hindsight server.
 
 ## Backend API
 

@@ -191,6 +191,7 @@ def feedback():
         "rating": rating,
         "hindsight_retained": hindsight_saved,
         "hindsight_status": hindsight_result.get("status"),
+        "mode": hindsight_result.get("mode", "hindsight"),
         "hindsight_error": hindsight_result.get("error")
     }), 201
 
