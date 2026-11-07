@@ -208,7 +208,7 @@ elif nav_choice == "New Investigation":
     st.title("🔍 New Incident Investigation")
     st.markdown("Submit a security alert or raw log. CyberMemory AI will extract indicators, recall similar cases from Hindsight, and generate a prioritized triage plan.")
 
-    # Preset selector for fast hackathon demo
+    # Preset selector for fast demo
     preset = st.selectbox(
         "Load Demo Preset Scenario:",
         [

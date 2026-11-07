@@ -32,7 +32,7 @@ def step_header(step_num: int, title: str):
 
 
 def main():
-    banner("CYBERMEMORY AI — 5-STEP HACKATHON LIVE DEMONSTRATION")
+    banner("CYBERMEMORY AI — 5-STEP LIVE DEMONSTRATION")
     print("  Author: Data, Security & Testing Engineer")
     print("  Branch: feature/data-testing")
     print("  Evaluating: Cold Start vs. Warm Hindsight Memory")

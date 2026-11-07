@@ -54,6 +54,36 @@ similarity score. With no matches it is reported as "not scored".
 **Analyst feedback.** Fields the analyst did not provide are stored as "Not provided by analyst";
 nothing is fabricated.
 
+## How Hindsight memory is used
+
+Hindsight is the agent's long-term memory. Every investigation goes through three memory operations:
+
+| Operation | When | What is stored or returned |
+|---|---|---|
+| **Retain** | After an investigation, and again when an analyst submits feedback | Incident description, indicators (IPs, domains, hashes, processes, MITRE techniques), investigation steps, root cause, remediation, outcome, analyst feedback and lessons learned. Each incident is retained with its incident id as the Hindsight `document_id`, so re-investigating updates it instead of duplicating it. |
+| **Recall** | When a new alert arrives, before the plan is generated | The most similar past incidents. Their root causes and proven remediation steps are passed to the investigation agent as context. |
+| **Reflect** | On demand (`POST /api/memory/reflect`, `POST /api/reflect`) | A synthesis of patterns across many incidents, for example recurring root causes for PowerShell alerts. |
+
+**Why it matters.** Without memory, every alert gets generic advice. With memory, the agent reuses the
+runbook that actually worked last time, and its confidence comes from how closely the new alert matches
+that history. The Analytics page compares investigations with and without memory.
+
+**Learning over time.** Analyst feedback is retained as its own memory, so confirmed root causes and
+corrections influence the next similar investigation.
+
+**Isolation.** Memory banks are separated per tenant (`X-Tenant-ID` → bank `cybermemory-<tenant>`).
+
+### Connecting to Hindsight
+
+1. Create an instance on [Hindsight Cloud](https://ui.hindsight.vectorize.io) (or run the open-source server).
+2. Copy `.env.example` to `.env` and set `HINDSIGHT_URL` and `HINDSIGHT_API_KEY`.
+3. `pip install -r requirements.txt` (includes `hindsight-client`).
+4. Verify: `python -m backend.tests.smoke_service` should print `HEALTH: {'status': 'ok', ...}` and `RETAIN: {'status': 'ok', ...}`.
+5. Start `python app.py`. `GET /api/memory/health` reports the active mode.
+
+If Hindsight is not configured, the app falls back to a local bank and labels every response
+`"mode": "local"`, so a live demo never silently pretends to use Hindsight.
+
 ## Local setup
 
 Requires Python 3.10 or newer.
